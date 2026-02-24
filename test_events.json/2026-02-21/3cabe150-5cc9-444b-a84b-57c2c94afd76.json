@@ -1,0 +1,18 @@
+{
+  "eventId": "3cabe150-5cc9-444b-a84b-57c2c94afd76",
+  "eventName": "FileTestEvent",
+  "eventVersion": "1.0",
+  "source": "file-service",
+  "timestamp": "2026-02-21T16:33:35.619994+00:00",
+  "data": {
+    "file": "test"
+  },
+  "metadata": {
+    "microservice": "file-service",
+    "functionality": "file-operation",
+    "correlationId": "fc87de44-1bc1-4ebe-8d9a-9e6b58dc505b"
+  },
+  "createdAt": "2026-02-21T16:33:35.620006+00:00",
+  "updatedAt": "2026-02-21T16:33:35.620006+00:00",
+  "status": "created"
+}
