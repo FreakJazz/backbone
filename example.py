@@ -14,7 +14,7 @@ from backbone import (
     # Domain layer
     DomainException,
     FilterSpecification,
-    BaseRepository,
+    IRepository,
     
     # Application layer 
     ApplicationException,
@@ -69,9 +69,9 @@ class User:
         age = user_data.get("age", 0)
         if age < 18:
             raise DomainException(
+                code=11001001,
                 message="User must be at least 18 years old",
-                error_code="11001001",
-                context={"provided_age": age, "minimum_age": 18}
+                details={"provided_age": age, "minimum_age": 18}
             )
         
         return cls(
@@ -101,7 +101,7 @@ class UserValidationSpecification(FilterSpecification):
 class UserService:
     """Application service for user management with events"""
     
-    def __init__(self, user_repository: BaseRepository[User, str], event_bus: EventBus):
+    def __init__(self, user_repository: IRepository[User, str], event_bus: EventBus):
         self._user_repository = user_repository
         self._event_bus = event_bus
         self._logger = LoggerFactory.create_logger("UserService")
@@ -120,7 +120,7 @@ class UserService:
             ApplicationException: If creation fails
         """
         try:
-            await self._logger.info("Creating user", context={"email": user_data.get("email")})
+            self._logger.info("Creating user", extra_data={"email": user_data.get("email")})
             
             # Check unique email
             existing_users = await self._user_repository.find_by_specification(
@@ -129,9 +129,9 @@ class UserService:
             
             if existing_users:
                 raise DomainException(
+                    code=11001002,
                     message="User with this email already exists",
-                    error_code="11001002",
-                    context={"email": user_data["email"]}
+                    details={"email": user_data["email"]}
                 )
             
             # Create domain entity (includes validation)
@@ -174,9 +174,9 @@ class UserService:
             
             await self._event_bus.publish(integration_event)
             
-            await self._logger.info(
+            self._logger.info(
                 "User created successfully with events", 
-                context={
+                extra_data={
                     "user_id": saved_user.id, 
                     "email": saved_user.email,
                     "events_published": ["UserCreated", "UserRegistrationCompleted"]
@@ -189,15 +189,14 @@ class UserService:
             # Re-raise domain exceptions
             raise
         except Exception as e:
-            await self._logger.error(
+            self._logger.error(
                 "Failed to create user",
-                context={"error": str(e), "user_data": user_data}
+                extra_data={"error": str(e), "user_data": user_data}
             )
             raise ApplicationException(
+                code=10001001,
                 message="Failed to create user",
-                error_code="10001001",
-                operation="create_user",
-                original_error=str(e)
+                details={"operation": "create_user", "original_error": str(e)}
             )
     
     async def get_active_adult_users(self, page: int = 0, page_size: int = 20) -> tuple[List[User], int]:
@@ -222,20 +221,19 @@ class UserService:
                 spec, page, page_size
             )
             
-            await self._logger.info(
+            self._logger.info(
                 "Active adult users retrieved",
-                context={"count": len(users), "total": total, "page": page}
+                extra_data={"count": len(users), "total": total, "page": page}
             )
             
             return users, total
             
         except Exception as e:
-            await self._logger.error("Failed to get users", context={"error": str(e)})
+            self._logger.error("Failed to get users", extra_data={"error": str(e)})
             raise ApplicationException(
+                code=10001002,
                 message="Failed to retrieve users",
-                error_code="10001002", 
-                operation="get_active_adult_users",
-                original_error=str(e)
+                details={"operation": "get_active_adult_users", "original_error": str(e)}
             )
 
 
@@ -249,9 +247,9 @@ class NotificationService:
     
     async def send_welcome_email(self, user_email: str, user_name: str):
         """Simulates sending welcome email"""
-        await self._logger.info(
+        self._logger.info(
             f"Sending welcome email to {user_email}",
-            context={"email": user_email, "name": user_name}
+            extra_data={"email": user_email, "name": user_name}
         )
         # Simulate email sending
         await asyncio.sleep(0.1)
@@ -268,9 +266,9 @@ class AnalyticsService:
     async def increment_user_count(self, user_data: dict):
         """Increments user registration metrics"""
         self._user_count += 1
-        await self._logger.info(
+        self._logger.info(
             "User count incremented",
-            context={"new_count": self._user_count, "user_id": user_data.get("user_id")}
+            extra_data={"new_count": self._user_count, "user_id": user_data.get("user_id")}
         )
         print(f"📊 Analytics: Total users registered: {self._user_count}")
 
@@ -283,9 +281,9 @@ class ProfileService:
     
     async def create_user_profile(self, user_data: dict):
         """Creates user profile"""
-        await self._logger.info(
+        self._logger.info(
             "Creating user profile",
-            context={"user_id": user_data.get("user_id")}
+            extra_data={"user_id": user_data.get("user_id")}
         )
         # Simulate profile creation
         await asyncio.sleep(0.05)
@@ -331,9 +329,9 @@ async def handle_user_registration_profile(event: BaseEvent):
 async def handle_user_created_logging(event: BaseEvent):
     """Additional handler for comprehensive logging"""
     logger = LoggerFactory.create_logger("UserEventLogger")
-    await logger.info(
+    logger.info(
         f"User creation event processed: {event.event_name}",
-        context={
+        extra_data={
             "event_id": event.event_id,
             "user_id": event.data.get("user_id"),
             "correlation_id": event.metadata.get("correlationId"),
@@ -365,18 +363,16 @@ class UserController:
             user = await self._user_service.create_user(request_data)
             
             return ProcessResponseBuilder.success(
+                message="User created successfully with events published",
                 data={
                     "id": user.id,
                     "name": user.name,
                     "email": user.email,
                     "age": user.age,
-                    "created_at": user.created_at.isoformat() if user.created_at else None
-                },
-                message="User created successfully with events published",
-                metadata={
-                    "operation": "create_user",
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
                     "events_published": ["UserCreated", "UserRegistrationCompleted"]
-                }
+                },
+                status=201
             )
             
         except (DomainException, ApplicationException) as e:
@@ -447,13 +443,13 @@ class UserController:
             ]
             
             return ProcessResponseBuilder.success(
-                data=events_data,
                 message=f"Retrieved {len(events)} events",
-                metadata={
-                    "operation": "get_user_events",
-                    "source": source,
-                    "total_events": len(events)
-                }
+                data={
+                    "events": events_data,
+                    "total_events": len(events),
+                    "source": source
+                },
+                status=200
             )
             
         except Exception as e:
@@ -470,6 +466,16 @@ class EventAwareTestCase(BaseTestCase):
         self.event_store = InMemoryEventStore()
         # Use in-memory event bus for testing (no external dependencies)
         self.event_bus = self.create_in_memory_event_bus()
+        
+    def tearDown(self):
+        """Clear event store between tests"""
+        super().tearDown()
+        # Clear all events from event store
+        if hasattr(self, 'event_store'):
+            self.event_store.events.clear()
+        # Clear events from event bus
+        if hasattr(self, 'event_bus') and hasattr(self.event_bus, 'events_published'):
+            self.event_bus.events_published.clear()
         
     def create_in_memory_event_bus(self):
         """Creates in-memory event bus for testing"""
@@ -505,6 +511,11 @@ class UserServiceWithEventsTest(EventAwareTestCase):
         super().setUp()
         self.mock_repo = MockRepository(User)
         self.user_service = UserService(self.mock_repo, self.event_bus)
+        # Ensure clean state for each test
+        if hasattr(self, 'event_store'):
+            self.event_store.events.clear()
+        if hasattr(self, 'event_bus') and hasattr(self.event_bus, 'events_published'):
+            self.event_bus.events_published.clear()
     
     async def test_create_adult_user_success_with_events(self):
         """Test: create adult user successfully and verify events"""
@@ -814,11 +825,19 @@ async def demo_complete_usage():
     except Exception as e:
         print(f"   ❌ test_create_adult_user_success_with_events: FAILED - {e}")
     
+    # Clean state between tests
+    test_case.tearDown()
+    test_case.setUp()
+    
     try:
         await test_case.test_create_minor_user_raises_domain_exception_no_events()
         print("   ✅ test_create_minor_user_raises_domain_exception_no_events: PASSED")
     except Exception as e:
         print(f"   ❌ test_create_minor_user_raises_domain_exception_no_events: FAILED - {e}")
+    
+    # Clean state between tests
+    test_case.tearDown()
+    test_case.setUp()
     
     try:
         await test_case.test_event_store_integration()

@@ -167,8 +167,11 @@ class BaseTestCase(unittest.TestCase):
                 
                 # Validar código de error si se especifica
                 if self.expected_code:
-                    actual_code = getattr(exc_value, 'error_code', None)
-                    if actual_code != self.expected_code:
+                    # Try both 'code' and 'error_code' attributes for backward compatibility
+                    actual_code = getattr(exc_value, 'code', None) or getattr(exc_value, 'error_code', None)
+                    expected_code_int = int(self.expected_code) if isinstance(self.expected_code, str) else self.expected_code
+                    
+                    if actual_code != expected_code_int:
                         raise AssertionError(
                             f"Expected error code {self.expected_code}, "
                             f"got {actual_code}"

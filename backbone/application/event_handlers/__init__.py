@@ -53,9 +53,9 @@ def event_handler(
             handler_name = handler_func.__name__
             
             if logger:
-                await logger.info(
+                logger.info(
                     f"Processing event: {event_name}",
-                    context={
+                    extra_data={
                         "event_id": event.event_id,
                         "event_name": event.event_name,
                         "handler": handler_name,
@@ -82,9 +82,9 @@ def event_handler(
             event.mark_as_processed()
             
             if logger:
-                await logger.info(
+                logger.info(
                     f"Event processed successfully: {event_name}",
-                    context={
+                    extra_data={
                         "event_id": event.event_id,
                         "handler": handler_name,
                         "status": "processed"
@@ -110,9 +110,9 @@ async def _validate_event(event: BaseEvent, expected_name: str, logger: Optional
         if event.event_name != expected_name:
             error_msg = f"Event name mismatch. Expected: {expected_name}, Got: {event.event_name}"
             if logger:
-                await logger.error(
+                logger.error(
                     error_msg,
-                    context={
+                    extra_data={
                         "event_id": event.event_id,
                         "expected_name": expected_name,
                         "actual_name": event.event_name
@@ -127,9 +127,9 @@ async def _validate_event(event: BaseEvent, expected_name: str, logger: Optional
             if not hasattr(event, field) or getattr(event, field) is None:
                 error_msg = f"Missing required field: {field}"
                 if logger:
-                    await logger.error(
+                    logger.error(
                         error_msg,
-                        context={
+                        extra_data={
                             "event_id": event.event_id,
                             "missing_field": field
                         }
@@ -143,9 +143,9 @@ async def _validate_event(event: BaseEvent, expected_name: str, logger: Optional
             if field not in event.metadata or event.metadata[field] is None:
                 error_msg = f"Missing required metadata field: {field}"
                 if logger:
-                    await logger.error(
+                    logger.error(
                         error_msg,
-                        context={
+                        extra_data={
                             "event_id": event.event_id,
                             "missing_metadata": field
                         }
@@ -158,9 +158,9 @@ async def _validate_event(event: BaseEvent, expected_name: str, logger: Optional
     except Exception as e:
         error_msg = f"Event validation failed: {str(e)}"
         if logger:
-            await logger.error(
+            logger.error(
                 error_msg,
-                context={
+                extra_data={
                     "event_id": getattr(event, 'event_id', 'unknown'),
                     "error": str(e)
                 }
@@ -197,9 +197,9 @@ async def _execute_with_retry(
             attempt_num = attempt + 1
             
             if logger:
-                await logger.warning(
+                logger.warning(
                     f"Event handler attempt {attempt_num} failed: {str(e)}",
-                    context={
+                    extra_data={
                         "event_id": event.event_id,
                         "handler": handler_name,
                         "attempt": attempt_num,
@@ -219,9 +219,9 @@ async def _execute_with_retry(
                     )
                 
                 if logger:
-                    await logger.info(
+                    logger.info(
                         f"Retrying in {delay} seconds",
-                        context={
+                        extra_data={
                             "event_id": event.event_id,
                             "handler": handler_name,
                             "delay_seconds": delay
@@ -234,9 +234,9 @@ async def _execute_with_retry(
     event.mark_as_failed()
     
     if logger:
-        await logger.error(
+        logger.error(
             f"Event handler failed after {retry_policy.max_attempts} attempts",
-            context={
+            extra_data={
                 "event_id": event.event_id,
                 "handler": handler_name,
                 "final_error": str(last_error)
@@ -248,10 +248,12 @@ async def _execute_with_retry(
         raise last_error
     else:
         raise ApplicationException(
+            code=10006001,
             message=f"Event handler failed after {retry_policy.max_attempts} attempts: {str(last_error)}",
-            error_code="10006001",
-            operation=f"execute_event_handler_{handler_name}",
-            original_error=str(last_error)
+            details={
+                "operation": f"execute_event_handler_{handler_name}",
+                "original_error": str(last_error)
+            }
         )
 
 

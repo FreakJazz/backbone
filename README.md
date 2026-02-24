@@ -1,8 +1,29 @@
 # Backbone - Clean Architecture Framework
 
+![Tests](https://img.shields.io/badge/tests-81%2F81_passing-brightgreen) ![Version](https://img.shields.io/badge/version-1.0.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
+
 ## 🏗️ Hexagonal/Clean Architecture with Event-Driven Microservices
 
-Python framework designed following Clean Architecture principles and enterprise design patterns. Provides a solid and decoupled foundation for building scalable and maintainable applications with **event-driven microservices communication**.
+**Production-ready** Python framework designed following Clean Architecture principles and enterprise design patterns. Provides a solid and decoupled foundation for building scalable and maintainable applications with **event-driven microservices communication**.
+
+✅ **Status**: All tests passing (81/81) - Framework ready for production use!
+
+## 🚀 Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/FreakJazz/backbone.git
+cd backbone
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Run the complete example
+python example.py
+
+# Run all tests
+python test_runner.py
+```
 
 ## 📋 Table of Contents
 

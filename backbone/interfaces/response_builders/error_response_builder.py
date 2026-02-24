@@ -26,6 +26,41 @@ class ErrorResponseBuilder:
     """
     
     @staticmethod
+    def from_exception(exception: Exception) -> Dict[str, Any]:
+        """
+        Construye respuesta de error desde excepción.
+        
+        Args:
+            exception: Excepción a convertir
+            
+        Returns:
+            Dict con formato estándar de error
+        """
+        # Try to get error code from kernel exceptions
+        try:
+            if hasattr(exception, 'to_error_contract'):
+                # For BaseKernelException, convert to new format
+                kernel_error = exception.to_error_contract()
+                return {
+                    "status": "error",
+                    "status_code": 500,  # Default to 500 for kernel errors
+                    "message": kernel_error.get("message", str(exception)),
+                    "error_details": {
+                        "error_code": kernel_error.get("code"),
+                        "request_id": kernel_error.get("rid")
+                    },
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "request_id": kernel_error.get("rid", str(uuid4()))
+                }
+        except:
+            pass
+        
+        # Default error handling
+        return ErrorResponseBuilder.internal_server_error(
+            message=str(exception)
+        )
+    
+    @staticmethod
     def _create_error_response(
         message: str,
         status_code: int,
