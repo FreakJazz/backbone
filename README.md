@@ -1,27 +1,46 @@
-# Backbone - Clean Architecture Framework
+# 🎯 Backbone Framework
 
-![Tests](https://img.shields.io/badge/tests-81%2F81_passing-brightgreen) ![Version](https://img.shields.io/badge/version-1.0.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
+![Tests](https://img.shields.io/badge/tests-81%2F81%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Status](https://img.shields.io/badge/status-production--ready-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![GitHub Package](https://img.shields.io/badge/GitHub%20Packages-available-blue)
 
-## 🏗️ Hexagonal/Clean Architecture with Event-Driven Microservices
+> **Clean Architecture Framework with Event-Driven Microservices for Python**
 
-**Production-ready** Python framework designed following Clean Architecture principles and enterprise design patterns. Provides a solid and decoupled foundation for building scalable and maintainable applications with **event-driven microservices communication**.
+## 📦 Installation
 
-✅ **Status**: All tests passing (81/81) - Framework ready for production use!
+### From GitHub Packages
+
+```bash
+# Install from GitHub Packages
+pip install --index-url https://pypi.pkg.github.com/FreakJazz/simple/ backbone
+
+# Or with version specification
+pip install --index-url https://pypi.pkg.github.com/FreakJazz/simple/ backbone==1.0.0
+```
+
+### From Source
+
+```bash
+# Clone repository
+git clone https://github.com/FreakJazz/backbone.git
+cd backbone
+
+# Install in development mode
+pip install -e .
+```
+
+For detailed installation instructions, see [INSTALLATION_GUIDE.md](./INSTALLATION_GUIDE.md).
 
 ## 🚀 Quick Start
 
 ```bash
-# Clone and install
-git clone https://github.com/FreakJazz/backbone.git
-cd backbone
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Run the complete example
+# Run comprehensive example
 python example.py
 
-# Run all tests
+# Run complete test suite  
 python test_runner.py
 ```
 
