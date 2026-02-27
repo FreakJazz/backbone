@@ -68,16 +68,15 @@ jobs:
           python << 'EOF'
           import sys
           try:
-              import tomli as toml
-          except ImportError:
-              import toml
-          
-          with open('pyproject.toml', 'rb') as f:
-              try:
+              import tomli
+              # Para tomli, leer como binario
+              with open('pyproject.toml', 'rb') as f:
                   data = tomli.load(f)
-              except:
-                  with open('pyproject.toml', 'r') as fr:
-                      data = toml.load(fr)
+          except ImportError:
+              # Fallback a toml regular
+              import toml
+              with open('pyproject.toml', 'r') as f:
+                  data = toml.load(f)
           
           version = data['project']['version']
           name = data['project']['name']
@@ -86,7 +85,8 @@ jobs:
           print(f"Version: {version}")
           
           # Output para GitHub Actions
-          with open('$GITHUB_OUTPUT', 'a') as f:
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'version={version}\n')
               f.write(f'name={name}\n')
           EOF
