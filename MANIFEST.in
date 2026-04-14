@@ -1,0 +1,30 @@
+# Include documentation files
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+
+# Include installation guides
+include INSTALLATION_GUIDE.md
+include WORKFLOW_DOCUMENTATION.md
+include USAGE_EXAMPLE.md
+
+# Include type stub marker
+include backbone/py.typed
+
+# Include package data
+recursive-include backbone *.py
+recursive-include backbone *.pyi
+
+# Exclude unnecessary files
+exclude .gitignore
+exclude .pre-commit-config.yaml
+exclude example.py
+exclude test_runner.py
+recursive-exclude tests *
+recursive-exclude .github *
+recursive-exclude __pycache__ *
+recursive-exclude *.pyc
+recursive-exclude .pytest_cache *
+recursive-exclude .venv *
+recursive-exclude venv *
