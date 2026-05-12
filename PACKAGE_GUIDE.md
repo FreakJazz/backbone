@@ -149,11 +149,23 @@ pip install C:\Users\Sistemas\Documents\programs\backbone\dist\backbone-1.0.0-py
 # Opción B: Desde directorio (modo desarrollo)
 pip install -e C:\Users\Sistemas\Documents\programs\backbone
 
-# Opción C: Desde GitHub (si está publicado)
+# Opción C: Desde GitHub (Recomendado)
 pip install git+https://github.com/FreakJazz/backbone.git
 
 # Opción D: Desde GitHub Packages (si está publicado)
 pip install --index-url https://pypi.pkg.github.com/FreakJazz/simple/ backbone
+```
+
+### 📖 Ejemplo Completo para Industrial Prom
+
+Para ver un ejemplo completo de cómo usar Backbone en el proyecto `industrial_prom`, consulta:
+
+- **[INDUSTRIAL_PROM_EXAMPLE.md](./INDUSTRIAL_PROM_EXAMPLE.md)** - Guía completa con código listo para usar
+- **[create_industrial_prom_structure.py](./create_industrial_prom_structure.py)** - Script para generar estructura automáticamente
+
+```powershell
+# Generar estructura del proyecto automáticamente
+python create_industrial_prom_structure.py
 ```
 
 ---

@@ -11,6 +11,16 @@
 
 ## 📦 Installation
 
+### From GitHub (Recommended)
+
+```bash
+# Install directly from GitHub
+pip install git+https://github.com/FreakJazz/backbone.git
+
+# Or with specific version
+pip install git+https://github.com/FreakJazz/backbone.git@v1.0.0
+```
+
 ### From GitHub Packages
 
 ```bash
@@ -21,7 +31,7 @@ pip install --index-url https://pypi.pkg.github.com/FreakJazz/simple/ backbone
 pip install --index-url https://pypi.pkg.github.com/FreakJazz/simple/ backbone==1.0.0
 ```
 
-### From Source
+### From Source (Development)
 
 ```bash
 # Clone repository
@@ -32,7 +42,10 @@ cd backbone
 pip install -e .
 ```
 
-For detailed installation instructions, see [INSTALLATION_GUIDE.md](./INSTALLATION_GUIDE.md).
+**📖 Installation Guides:**
+- [GITHUB_INSTALLATION.md](./GITHUB_INSTALLATION.md) - Complete guide for GitHub installation
+- [INSTALLATION_GUIDE.md](./INSTALLATION_GUIDE.md) - Detailed installation instructions
+- [PACKAGE_GUIDE.md](./PACKAGE_GUIDE.md) - Package distribution and publishing
 
 ## 🚀 Quick Start
 
@@ -42,6 +55,37 @@ python example.py
 
 # Run complete test suite  
 python test_runner.py
+```
+
+### 📝 Using in Your Projects
+
+**Quick Start:**
+```bash
+# Install in your project
+pip install git+https://github.com/FreakJazz/backbone.git
+
+# Start using
+from backbone import LoggerFactory, ProcessResponseBuilder, DomainException
+```
+
+**📖 Complete Guides:**
+- **[QUICK_START.md](./QUICK_START.md)** - 3-step quick start guide
+- **[INDUSTRIAL_PROM_EXAMPLE.md](./INDUSTRIAL_PROM_EXAMPLE.md)** - Complete real-world example
+- **[create_industrial_prom_structure.py](./create_industrial_prom_structure.py)** - Auto-generate project structure
+
+**Example:**
+```python
+from backbone import ProcessResponseBuilder, LoggerFactory
+
+logger = LoggerFactory.create_logger("my-app")
+
+@app.post("/machines/start")
+def start_machine(machine_id: int):
+    logger.info(f"Starting machine: {machine_id}")
+    return ProcessResponseBuilder.success(
+        message="Machine started",
+        data={"id": machine_id}
+    )
 ```
 
 ## 📋 Table of Contents
