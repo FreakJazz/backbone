@@ -53,6 +53,7 @@ setup(
         "pydantic>=2.0.0",
         "pydantic-settings>=2.0.0",
         "typing-extensions>=4.0.0",
+        "aiofiles>=25.1.0",
     ],
     extras_require={
         "sqlalchemy": [
