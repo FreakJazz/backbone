@@ -160,7 +160,7 @@ const (
 	UseCaseError = 10001001
 
 	// Validation Errors (10002XXX)
-	ValidationError      = 10002001
+	ValidationErrorCode  = 10002001
 	RequiredFieldMissing = 10002002
 	InvalidFieldFormat   = 10002003
 	FieldOutOfRange      = 10002004

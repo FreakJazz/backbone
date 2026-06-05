@@ -3,7 +3,6 @@ package specifications
 
 import (
 	"github.com/freakjazz/backbone-go/domain/specifications"
-	"github.com/freakjazz/backbone-go/examples/clean-api-go/domain/entities"
 )
 
 // ProductIsActive checks if a product is active
@@ -29,12 +28,4 @@ func ProductInStock() specifications.Specification {
 // ProductByNamePattern searches products by name pattern
 func ProductByNamePattern(pattern string) specifications.Specification {
 	return specifications.NewLikeSpecification("name", pattern)
-}
-
-// IsSatisfiedBy checks if a product satisfies the active specification
-func (s ProductIsActive) IsSatisfiedBy(entity interface{}) bool {
-	if product, ok := entity.(*entities.Product); ok {
-		return product.Active
-	}
-	return false
 }

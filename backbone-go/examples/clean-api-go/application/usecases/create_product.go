@@ -95,9 +95,8 @@ func (uc *CreateProductUseCase) Execute(ctx context.Context, input CreateProduct
 			"duration_ms": duration,
 		})
 		return nil, exceptions.NewUseCaseException(
-			10001003,
 			"Failed to create product",
-			map[string]interface{}{"error": err.Error()},
+			"CreateProductUseCase",
 		)
 	}
 

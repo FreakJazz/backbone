@@ -1,4 +1,13 @@
-// Clean API Example with Go Backbone Framework
+// @title Product API
+// @version 1.0
+// @description Clean Architecture API Example with Backbone Framework
+// @contact.name API Support
+// @license.name MIT
+// @host localhost:8080
+// @basePath /api
+// @schemes http
+
+// Package main contains the main application setup
 package main
 
 import (
@@ -12,11 +21,14 @@ import (
 	"time"
 
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/application/usecases"
+	_ "github.com/freakjazz/backbone-go/examples/clean-api-go/docs"
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/domain/entities"
+	domainRepositories "github.com/freakjazz/backbone-go/examples/clean-api-go/domain/repositories"
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/infrastructure/repositories"
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/interfaces/http/handlers"
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/interfaces/http/middleware"
 	"github.com/freakjazz/backbone-go/infrastructure/logging"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -73,6 +85,9 @@ func main() {
 		w.Write([]byte(`{"status":"healthy","service":"product-api"}`))
 	})
 
+	// Swagger documentation routes
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
+
 	server := &http.Server{
 		Addr:         ":8080",
 		Handler:      handler,
@@ -94,7 +109,7 @@ func main() {
 		fmt.Println("  GET    http://localhost:8080/health")
 		fmt.Println("\n🔍 Example with filters:")
 		fmt.Println("  curl \"http://localhost:8080/api/products?category=Electronics&min_price=500&max_price=2000&page=1&page_size=10\"")
-		fmt.Println("\n💡 Press Ctrl+C to stop\n")
+		fmt.Println("\n💡 Press Ctrl+C to stop")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Critical("Server failed to start", map[string]interface{}{
@@ -125,7 +140,7 @@ func main() {
 }
 
 // seedData seeds initial data for demo
-func seedData(repo repositories.ProductRepository, logger *logging.EnhancedLogger) {
+func seedData(repo domainRepositories.ProductRepository, logger *logging.EnhancedLogger) {
 	ctx := context.Background()
 
 	logger.Info("Seeding demo data...", nil)

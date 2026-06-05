@@ -89,9 +89,8 @@ func (uc *GetProductsUseCase) Execute(ctx context.Context, input GetProductsInpu
 			"error": err.Error(),
 		})
 		return nil, exceptions.NewUseCaseException(
-			10002001,
 			"Failed to count products",
-			map[string]interface{}{"error": err.Error()},
+			"GetProductsUseCase",
 		)
 	}
 
@@ -104,9 +103,8 @@ func (uc *GetProductsUseCase) Execute(ctx context.Context, input GetProductsInpu
 			"duration_ms": duration,
 		})
 		return nil, exceptions.NewUseCaseException(
-			10002002,
 			"Failed to get products",
-			map[string]interface{}{"error": err.Error()},
+			"GetProductsUseCase",
 		)
 	}
 
