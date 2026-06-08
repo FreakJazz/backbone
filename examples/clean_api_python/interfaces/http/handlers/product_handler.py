@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..')))
 
 from backbone.infrastructure.logging import LoggerFactory, LogLevel
-from backbone.interfaces.response_builders import ProcessResponseBuilder, QueryResponseBuilder, ErrorResponseBuilder
+from backbone.interfaces.response_builders import ProcessResponseBuilder, ErrorResponseBuilder
 from examples.clean_api_python.application.use_cases.create_product import (
     CreateProductUseCase,
     CreateProductInput
@@ -35,10 +35,9 @@ class ProductHandler:
         """Handles product creation"""
         context = self._get_request_context()
         
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Handling create product request",
-            context=context
+            extra_data=context
         )
         
         # Parse request body
@@ -52,14 +51,12 @@ class ProductHandler:
                 stock=int(data.get("stock", 0))
             )
         except Exception as e:
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Invalid JSON payload",
                 extra_data={
                     "error": str(e),
                     "error_code": 13001001
-                },
-                context=context
+                }
             )
             response = ErrorResponseBuilder.bad_request(
                 "Invalid JSON payload",
@@ -71,14 +68,12 @@ class ProductHandler:
         try:
             output = self.create_use_case.execute(input_data, context)
         except Exception as e:
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Use case failed",
                 extra_data={
                     "error": str(e),
                     "error_code": 13001002
-                },
-                context=context
+                }
             )
             response = ErrorResponseBuilder.internal_server_error(
                 "Failed to create product",
@@ -92,11 +87,9 @@ class ProductHandler:
             {"product": output.product.to_dict()}
         )
         
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Product created successfully",
-            extra_data={"product_id": output.product.id},
-            context=context
+            extra_data={"product_id": output.product.id}
         )
         
         return jsonify(response), response["status"]
@@ -105,17 +98,15 @@ class ProductHandler:
         """Handles getting products with filters"""
         context = self._get_request_context()
         
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Handling get products request",
-            context=context
+            extra_data=context
         )
         
         # Parse query parameters
         input_data = self._parse_query_parameters()
         
-        self.logger.log(
-            LogLevel.DEBUG,
+        self.logger.debug(
             "Query parameters parsed",
             extra_data={
                 "category": input_data.category,
@@ -123,22 +114,19 @@ class ProductHandler:
                 "max_price": input_data.max_price,
                 "page": input_data.page,
                 "page_size": input_data.page_size
-            },
-            context=context
+            }
         )
         
         # Execute use case
         try:
             output = self.get_use_case.execute(input_data, context)
         except Exception as e:
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Use case failed",
                 extra_data={
                     "error": str(e),
                     "error_code": 13001003
-                },
-                context=context
+                }
             )
             response = ErrorResponseBuilder.internal_server_error(
                 "Failed to get products",
@@ -148,26 +136,31 @@ class ProductHandler:
         
         # Success response with pagination
         products_data = [p.to_dict() for p in output.products]
-        response = QueryResponseBuilder.success_with_pagination(
-            "Products retrieved successfully",
-            products_data,
-            output.page,
-            output.page_size,
-            output.total_count
-        )
+        response = {
+            "status": "success",
+            "status_code": 200,
+            "message": "Products retrieved successfully",
+            "data": products_data,
+            "pagination": {
+                "page": output.page,
+                "page_size": output.page_size,
+                "total_records": output.total_count,
+                "total_pages": output.total_pages,
+                "has_next": output.has_next,
+                "has_previous": output.has_previous
+            }
+        }
         
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Products retrieved successfully",
             extra_data={
                 "count": len(output.products),
                 "total_count": output.total_count,
                 "page": output.page
-            },
-            context=context
+            }
         )
         
-        return jsonify(response), response["status"]
+        return jsonify(response), 200
     
     def _parse_query_parameters(self) -> GetProductsInput:
         """Parses query parameters for filtering"""

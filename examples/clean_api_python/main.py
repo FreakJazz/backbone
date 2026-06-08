@@ -1,5 +1,6 @@
 """Clean API Example with Python Backbone Framework"""
 from flask import Flask, jsonify
+from flask_restx import Api, Resource, fields, Namespace
 from datetime import datetime
 import sys
 import os
@@ -19,14 +20,24 @@ from examples.clean_api_python.interfaces.http.middleware.logging_middleware imp
 def create_app():
     """Creates and configures the Flask app"""
     app = Flask(__name__)
+    app.config['RESTX_MASK_SWAGGER'] = False
+    
+    # Initialize Flask-RESTX API
+    api = Api(
+        app,
+        version='1.0',
+        title='Product API',
+        description='Clean Architecture API Example with Backbone Framework',
+        doc='/docs',
+        prefix='/api'
+    )
     
     print("🚀 Starting Clean API Example - Python")
     print("=" * 40)
     
     # Setup logger
     logger = LoggerFactory.create_logger("product-api")
-    logger.log(
-        LogLevel.INFO,
+    logger.info(
         "Initializing application",
         extra_data={"version": "1.0.0", "env": "development"}
     )
@@ -44,36 +55,77 @@ def create_app():
     # Create handlers
     product_handler = ProductHandler(create_product_use_case, get_products_use_case)
     
-    # Register routes with logging middleware
-    @app.route("/api/products", methods=["POST"])
-    @logging_middleware
-    def create_product():
-        return product_handler.create_product()
+    # Define models for Swagger documentation
+    product_model = api.model('Product', {
+        'id': fields.String(required=True, description='Product ID'),
+        'name': fields.String(required=True, description='Product name'),
+        'description': fields.String(description='Product description'),
+        'price': fields.Float(required=True, description='Product price'),
+        'category': fields.String(required=True, description='Product category'),
+        'stock': fields.Integer(required=True, description='Product stock quantity'),
+        'active': fields.Boolean(description='Product active status'),
+        'created_at': fields.String(description='Creation timestamp'),
+        'updated_at': fields.String(description='Last update timestamp')
+    })
     
-    @app.route("/api/products", methods=["GET"])
-    @logging_middleware
-    def get_products():
-        return product_handler.get_products()
+    create_product_model = api.model('CreateProduct', {
+        'name': fields.String(required=True, description='Product name', example='Laptop Dell XPS 15'),
+        'description': fields.String(required=True, description='Product description', example='High performance laptop'),
+        'price': fields.Float(required=True, description='Product price', example=1500.00),
+        'category': fields.String(required=True, description='Product category', example='Electronics'),
+        'stock': fields.Integer(required=True, description='Product stock quantity', example=50)
+    })
     
-    @app.route("/health", methods=["GET"])
+    # Create namespace
+    ns = api.namespace('products', description='Product operations')
+    
+    @ns.route('')
+    class ProductList(Resource):
+        @ns.doc('list_products', 
+            params={
+                'category': 'Filter by category',
+                'min_price': 'Minimum price filter',
+                'max_price': 'Maximum price filter',
+                'in_stock': 'Filter by stock availability (true/false)',
+                'name': 'Search by name pattern',
+                'page': 'Page number (default 1)',
+                'page_size': 'Page size (default 10)',
+                'sort_by': 'Sort field (default created_at)',
+                'sort_order': 'Sort order: asc or desc (default desc)'
+            }
+        )
+        @ns.marshal_with(product_model, as_list=True)
+        def get(self):
+            """Get products with optional filters"""
+            return product_handler.get_products()
+        
+        @ns.doc('create_product')
+        @ns.expect(create_product_model)
+        @ns.marshal_with(product_model)
+        def post(self):
+            """Create a new product"""
+            return product_handler.create_product()
+    
+    # Health endpoint
+    @app.route('/health')
     def health():
         return jsonify({
             "status": "healthy",
             "service": "product-api"
         }), 200
     
-    logger.log(
-        LogLevel.INFO,
+    logger.info(
         "Application initialized successfully",
-        extra_data={"routes": ["/api/products", "/health"]}
+        extra_data={"routes": ["/api/products", "/health", "/docs"]}
     )
     
     return app
 
 
+
 def seed_data(repo, logger):
     """Seeds initial data for demo"""
-    logger.log(LogLevel.INFO, "Seeding demo data...")
+    logger.info("Seeding demo data...")
     
     products = [
         Product(
@@ -132,14 +184,12 @@ def seed_data(repo, logger):
         try:
             repo.create(product)
         except Exception as e:
-            logger.log(
-                LogLevel.WARNING,
+            logger.warning(
                 "Failed to seed product",
                 extra_data={"product_id": product.id, "error": str(e)}
             )
     
-    logger.log(
-        LogLevel.INFO,
+    logger.info(
         "Demo data seeded successfully",
         extra_data={"count": len(products)}
     )

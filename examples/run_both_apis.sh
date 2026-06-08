@@ -64,7 +64,7 @@ fi
 # Iniciar Python API
 if [ "$PYTHON_AVAILABLE" = true ]; then
     echo -e "${BLUE}▶️  Iniciando Python API (puerto 5000)...${NC}"
-    cd examples/clean-api-python
+    cd examples/clean_api_python
     pip install -r requirements.txt > /dev/null 2>&1
     python3 main.py &> python.log &
     PYTHON_PID=$!

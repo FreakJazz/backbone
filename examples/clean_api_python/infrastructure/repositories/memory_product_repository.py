@@ -31,8 +31,7 @@ class MemoryProductRepository(ProductRepository):
         
         if product.id in self.products:
             duration_ms = int((time.time() - start) * 1000)
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Product already exists",
                 extra_data={
                     "product_id": product.id,
@@ -45,8 +44,7 @@ class MemoryProductRepository(ProductRepository):
         self.products[product.id] = product
         
         duration_ms = int((time.time() - start) * 1000)
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Product created",
             extra_data={
                 "product_id": product.id,
@@ -62,8 +60,7 @@ class MemoryProductRepository(ProductRepository):
         duration_ms = int((time.time() - start) * 1000)
         
         if not product:
-            self.logger.log(
-                LogLevel.WARNING,
+            self.logger.warning(
                 "Product not found",
                 extra_data={
                     "product_id": id,
@@ -72,8 +69,7 @@ class MemoryProductRepository(ProductRepository):
             )
             return None
         
-        self.logger.log(
-            LogLevel.DEBUG,
+        self.logger.debug(
             "Product found",
             extra_data={
                 "product_id": id,
@@ -90,8 +86,7 @@ class MemoryProductRepository(ProductRepository):
         products = list(self.products.values())
         
         duration_ms = int((time.time() - start) * 1000)
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "All products retrieved",
             extra_data={
                 "count": len(products),
@@ -131,8 +126,7 @@ class MemoryProductRepository(ProductRepository):
         
         sql = " ".join(sql_parts)
         
-        self.logger.log(
-            LogLevel.DEBUG,
+        self.logger.debug(
             "Executing query with criteria",
             extra_data={
                 "sql": sql,
@@ -161,8 +155,7 @@ class MemoryProductRepository(ProductRepository):
         duration_ms = int((time.time() - start) * 1000)
         
         # Log de query completo
-        self.logger.log(
-            LogLevel.DEBUG,
+        self.logger.debug(
             "Query executed",
             extra_data={
                 "sql": sql,
@@ -172,8 +165,7 @@ class MemoryProductRepository(ProductRepository):
             }
         )
         
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Products found by criteria",
             extra_data={
                 "count": len(results),
@@ -196,8 +188,7 @@ class MemoryProductRepository(ProductRepository):
         count = len(results)
         
         duration_ms = int((time.time() - start) * 1000)
-        self.logger.log(
-            LogLevel.DEBUG,
+        self.logger.debug(
             "Count query executed",
             extra_data={
                 "count": count,
@@ -213,8 +204,7 @@ class MemoryProductRepository(ProductRepository):
         
         if product.id not in self.products:
             duration_ms = int((time.time() - start) * 1000)
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Product not found for update",
                 extra_data={
                     "product_id": product.id,
@@ -228,8 +218,7 @@ class MemoryProductRepository(ProductRepository):
         self.products[product.id] = product
         
         duration_ms = int((time.time() - start) * 1000)
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Product updated",
             extra_data={
                 "product_id": product.id,
@@ -243,8 +232,7 @@ class MemoryProductRepository(ProductRepository):
         
         if id not in self.products:
             duration_ms = int((time.time() - start) * 1000)
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Product not found for deletion",
                 extra_data={
                     "product_id": id,
@@ -257,8 +245,7 @@ class MemoryProductRepository(ProductRepository):
         del self.products[id]
         
         duration_ms = int((time.time() - start) * 1000)
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Product deleted",
             extra_data={
                 "product_id": id,

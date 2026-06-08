@@ -122,7 +122,7 @@ go func() {
 ### Estructura
 
 ```
-clean-api-python/
+clean_api_python/
 ├── domain/
 │   ├── entities/product.py
 │   ├── repositories/product_repository.py
@@ -144,7 +144,7 @@ clean-api-python/
 ### Ejecutar
 
 ```bash
-cd examples/clean-api-python
+cd examples/clean_api_python
 pip install -r requirements.txt
 python main.py
 ```

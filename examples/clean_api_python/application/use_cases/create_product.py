@@ -43,8 +43,7 @@ class CreateProductUseCase:
     
     def execute(self, input: CreateProductInput, context: Dict[str, Any]) -> CreateProductOutput:
         """Executes the use case"""
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Creating product",
             extra_data={
                 "name": input.name,
@@ -67,15 +66,13 @@ class CreateProductUseCase:
                 stock=input.stock
             )
         except ValidationError as e:
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Domain validation failed",
                 extra_data={
                     "error": str(e),
                     "field": e.field,
                     "code": e.code
-                },
-                context=context
+                }
             )
             raise ValidationException(
                 "Product validation failed",
@@ -88,27 +85,23 @@ class CreateProductUseCase:
             self.repository.create(product)
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Failed to save product",
                 extra_data={
                     "error": str(e),
                     "duration_ms": duration_ms,
                     "error_code": 10001003
-                },
-                context=context
+                }
             )
             raise Exception(f"Failed to create product: {str(e)}")
         
         duration_ms = int((time.time() - start) * 1000)
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Product created successfully",
             extra_data={
                 "product_id": product.id,
                 "duration_ms": duration_ms
-            },
-            context=context
+            }
         )
         
         return CreateProductOutput(product=product)

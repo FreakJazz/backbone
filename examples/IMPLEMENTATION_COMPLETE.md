@@ -84,7 +84,7 @@ examples/clean-api-go/
 ### Python Example (21 archivos)
 
 ```
-examples/clean-api-python/
+examples/clean_api_python/
 ├── main.py                               ✅ Punto de entrada Flask
 ├── requirements.txt                      ✅ Dependencias
 ├── __init__.py                           ✅ Paquete raíz
@@ -275,7 +275,7 @@ go run main.go
 ### Python API
 
 ```bash
-cd examples/clean-api-python
+cd examples/clean_api_python
 pip install -r requirements.txt
 python main.py
 

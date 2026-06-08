@@ -5,7 +5,7 @@ API completa de gestión de productos con arquitectura limpia usando Backbone-Py
 ## 📁 Estructura
 
 ```
-examples/clean-api-python/
+examples/clean_api_python/
 ├── domain/
 │   ├── entities/
 │   │   └── product.py           # Entidad Product
@@ -41,7 +41,7 @@ examples/clean-api-python/
 pip install -r requirements.txt
 
 # Ejecutar la API
-python examples/clean-api-python/main.py
+python examples/clean_api_python/main.py
 
 # API disponible en: http://localhost:5000
 ```

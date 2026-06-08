@@ -55,8 +55,7 @@ class GetProductsUseCase:
     
     def execute(self, input: GetProductsInput, context: Dict[str, Any]) -> GetProductsOutput:
         """Executes the use case with Specification Pattern"""
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Getting products with filters",
             extra_data={
                 "category": input.category,
@@ -65,8 +64,7 @@ class GetProductsUseCase:
                 "in_stock": input.in_stock,
                 "page": input.page,
                 "page_size": input.page_size
-            },
-            context=context
+            }
         )
         
         # Construir filtros con Specification Pattern
@@ -74,14 +72,12 @@ class GetProductsUseCase:
         filters = self._build_filters(input)
         sorts = self._build_sorts(input)
         
-        self.logger.log(
-            LogLevel.DEBUG,
+        self.logger.debug(
             "Query criteria built",
             extra_data={
                 "filters_applied": self._get_applied_filters(input),
                 "filters_count": len(filters)
-            },
-            context=context
+            }
         )
         
         # Obtener total count
@@ -97,15 +93,13 @@ class GetProductsUseCase:
             )
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
-            self.logger.log(
-                LogLevel.ERROR,
+            self.logger.error(
                 "Failed to get products",
                 extra_data={
                     "error": str(e),
                     "duration_ms": duration_ms,
                     "error_code": 10002002
-                },
-                context=context
+                }
             )
             raise Exception(f"Failed to get products: {str(e)}")
         
@@ -124,15 +118,13 @@ class GetProductsUseCase:
             has_previous=input.page > 1
         )
         
-        self.logger.log(
-            LogLevel.INFO,
+        self.logger.info(
             "Products retrieved successfully",
             extra_data={
                 "count": len(products),
                 "total_count": total_count,
                 "duration_ms": duration_ms
-            },
-            context=context
+            }
         )
         
         return output
