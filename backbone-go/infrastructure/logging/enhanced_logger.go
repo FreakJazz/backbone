@@ -4,34 +4,22 @@ package logging
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 )
 
-// EnhancedLogEntry extends LogEntry with additional context
-type EnhancedLogEntry struct {
-	Timestamp   time.Time              `json:"timestamp"`
-	Level       LogLevel               `json:"level"`
-	Service     string                 `json:"service"`
-	Component   string                 `json:"component,omitempty"`
-	Layer       string                 `json:"layer,omitempty"`
-	Method      string                 `json:"method,omitempty"`
-	Handler     string                 `json:"handler,omitempty"`
-	Message     string                 `json:"message"`
-	ExtraData   map[string]interface{} `json:"extra_data,omitempty"`
-	Context     map[string]interface{} `json:"context,omitempty"`
-	Query       *QueryLog              `json:"query,omitempty"`
-	StackTrace  string                 `json:"stack_trace,omitempty"`
-	TraceID     string                 `json:"trace_id,omitempty"`
-	RequestID   string                 `json:"request_id,omitempty"`
-	UserID      string                 `json:"user_id,omitempty"`
-	Environment string                 `json:"environment,omitempty"`
-	ErrorCode   int                    `json:"error_code,omitempty"`
+// ErrorLog matches the Python "error" field in log entries.
+type ErrorLog struct {
+	Type       string `json:"type"`
+	Message    string `json:"message"`
+	Code       int    `json:"code,omitempty"`
+	StackTrace string `json:"stack_trace,omitempty"`
 }
 
-// QueryLog represents query execution information
+// QueryLog represents query execution information.
 type QueryLog struct {
 	SQL          string                 `json:"sql"`
 	Args         []interface{}          `json:"args,omitempty"`
@@ -41,7 +29,46 @@ type QueryLog struct {
 	Params       map[string]interface{} `json:"params,omitempty"`
 }
 
-// EnhancedLogger provides advanced logging capabilities
+// EnhancedLogEntry is the unified log entry shape (same as Python backbone).
+//
+// JSON output:
+//
+//	{
+//	  "timestamp": "...",
+//	  "level": "INFO",
+//	  "service": "...",
+//	  "component": "...",
+//	  "layer": "...",
+//	  "method": "...",
+//	  "message": "...",
+//	  "request_id": "...",
+//	  "trace_id": "...",
+//	  "user_id": "...",
+//	  "environment": "...",
+//	  "extra_data": {},
+//	  "context": {},
+//	  "error": { "type": "...", "message": "...", "code": 0, "stack_trace": "..." },
+//	  "query": { ... }
+//	}
+type EnhancedLogEntry struct {
+	Timestamp   time.Time              `json:"timestamp"`
+	Level       LogLevel               `json:"level"`
+	Service     string                 `json:"service"`
+	Component   string                 `json:"component,omitempty"`
+	Layer       string                 `json:"layer,omitempty"`
+	Method      string                 `json:"method,omitempty"`
+	Message     string                 `json:"message"`
+	RequestID   string                 `json:"request_id,omitempty"`
+	TraceID     string                 `json:"trace_id,omitempty"`
+	UserID      string                 `json:"user_id,omitempty"`
+	Environment string                 `json:"environment,omitempty"`
+	ExtraData   map[string]interface{} `json:"extra_data,omitempty"`
+	Context     map[string]interface{} `json:"context,omitempty"`
+	Error       *ErrorLog              `json:"error,omitempty"`
+	Query       *QueryLog              `json:"query,omitempty"`
+}
+
+// EnhancedLogger provides advanced logging capabilities.
 type EnhancedLogger struct {
 	service     string
 	component   string
@@ -49,12 +76,12 @@ type EnhancedLogger struct {
 	method      string
 	handler     string
 	context     map[string]interface{}
-	output      *os.File
+	output      io.Writer
 	level       LogLevel
 	environment string
 }
 
-// NewEnhancedLogger creates a new enhanced logger
+// NewEnhancedLogger creates a new enhanced logger.
 func NewEnhancedLogger(service string) *EnhancedLogger {
 	return &EnhancedLogger{
 		service:     service,
@@ -65,166 +92,160 @@ func NewEnhancedLogger(service string) *EnhancedLogger {
 	}
 }
 
-// WithLayer sets the layer context
+// WithLayer returns a new logger scoped to a layer.
 func (l *EnhancedLogger) WithLayer(layer string) *EnhancedLogger {
-	newLogger := l.clone()
-	newLogger.layer = layer
-	return newLogger
+	c := l.clone()
+	c.layer = layer
+	return c
 }
 
-// WithComponent sets the component context
+// WithComponent returns a new logger scoped to a component.
 func (l *EnhancedLogger) WithComponent(component string) *EnhancedLogger {
-	newLogger := l.clone()
-	newLogger.component = component
-	return newLogger
+	c := l.clone()
+	c.component = component
+	return c
 }
 
-// WithMethod sets the method context (automatically detected if not set)
+// WithMethod returns a new logger scoped to a method.
 func (l *EnhancedLogger) WithMethod(method string) *EnhancedLogger {
-	newLogger := l.clone()
-	newLogger.method = method
-	return newLogger
+	c := l.clone()
+	c.method = method
+	return c
 }
 
-// WithHandler sets the handler context
+// WithHandler returns a new logger scoped to a handler.
 func (l *EnhancedLogger) WithHandler(handler string) *EnhancedLogger {
-	newLogger := l.clone()
-	newLogger.handler = handler
-	return newLogger
+	c := l.clone()
+	c.handler = handler
+	return c
 }
 
-// WithContext adds context information
+// WithContext returns a new logger with additional context fields.
 func (l *EnhancedLogger) WithContext(ctx map[string]interface{}) *EnhancedLogger {
-	newLogger := l.clone()
+	c := l.clone()
 	for k, v := range ctx {
-		newLogger.context[k] = v
+		c.context[k] = v
 	}
-	return newLogger
+	return c
 }
 
-// clone creates a copy of the logger
-func (l *EnhancedLogger) clone() *EnhancedLogger {
-	newContext := make(map[string]interface{})
-	for k, v := range l.context {
-		newContext[k] = v
-	}
+// SetLevel sets the minimum log level.
+func (l *EnhancedLogger) SetLevel(level LogLevel) {
+	l.level = level
+}
 
+// SetOutput sets the output writer.
+func (l *EnhancedLogger) SetOutput(w io.Writer) {
+	l.output = w
+}
+
+func (l *EnhancedLogger) clone() *EnhancedLogger {
+	ctx := make(map[string]interface{}, len(l.context))
+	for k, v := range l.context {
+		ctx[k] = v
+	}
 	return &EnhancedLogger{
 		service:     l.service,
 		component:   l.component,
 		layer:       l.layer,
 		method:      l.method,
 		handler:     l.handler,
-		context:     newContext,
+		context:     ctx,
 		output:      l.output,
 		level:       l.level,
 		environment: l.environment,
 	}
 }
 
-// LogQuery logs a query execution with full details
-func (l *EnhancedLogger) LogQuery(sql string, args []interface{}, duration int64, err error) {
-	queryLog := &QueryLog{
-		SQL:      sql,
-		Args:     args,
-		Duration: duration,
-	}
+// --- logging methods ---
 
-	if err != nil {
-		queryLog.Error = err.Error()
-	}
-
-	extra := map[string]interface{}{
-		"query_duration_ms": duration,
-	}
-
-	if err != nil {
-		l.logWithQuery(LevelError, "Query execution failed", extra, queryLog, true)
-	} else {
-		l.logWithQuery(LevelDebug, "Query executed", extra, queryLog, false)
-	}
-}
-
-// LogQueryWithParams logs a query with named parameters
-func (l *EnhancedLogger) LogQueryWithParams(sql string, args []interface{}, params map[string]interface{}, duration int64, err error) {
-	queryLog := &QueryLog{
-		SQL:      sql,
-		Args:     args,
-		Params:   params,
-		Duration: duration,
-	}
-
-	if err != nil {
-		queryLog.Error = err.Error()
-	}
-
-	extra := map[string]interface{}{
-		"query_duration_ms": duration,
-		"params":            params,
-	}
-
-	if err != nil {
-		l.logWithQuery(LevelError, "Query with params failed", extra, queryLog, true)
-	} else {
-		l.logWithQuery(LevelDebug, "Query with params executed", extra, queryLog, false)
-	}
-}
-
-// Debug logs a debug message
+// Debug logs a debug message.
 func (l *EnhancedLogger) Debug(message string, extra map[string]interface{}) {
 	if l.shouldLog(LevelDebug) {
-		l.logWithQuery(LevelDebug, message, extra, nil, false)
+		l.write(LevelDebug, message, extra, nil, nil, false)
 	}
 }
 
-// Info logs an info message
+// Info logs an info message.
 func (l *EnhancedLogger) Info(message string, extra map[string]interface{}) {
 	if l.shouldLog(LevelInfo) {
-		l.logWithQuery(LevelInfo, message, extra, nil, false)
+		l.write(LevelInfo, message, extra, nil, nil, false)
 	}
 }
 
-// Warning logs a warning message
+// Warning logs a warning message.
 func (l *EnhancedLogger) Warning(message string, extra map[string]interface{}) {
 	if l.shouldLog(LevelWarning) {
-		l.logWithQuery(LevelWarning, message, extra, nil, false)
+		l.write(LevelWarning, message, extra, nil, nil, false)
 	}
 }
 
-// Error logs an error message with stack trace
+// Error logs an error message with stack trace.
 func (l *EnhancedLogger) Error(message string, extra map[string]interface{}) {
 	if l.shouldLog(LevelError) {
-		l.logWithQuery(LevelError, message, extra, nil, true)
+		l.write(LevelError, message, extra, nil, nil, true)
 	}
 }
 
-// ErrorWithCode logs an error with error code
+// ErrorWithCode logs an error with an error code.
 func (l *EnhancedLogger) ErrorWithCode(message string, errorCode int, extra map[string]interface{}) {
-	if extra == nil {
-		extra = make(map[string]interface{})
-	}
-	extra["error_code"] = errorCode
-
 	if l.shouldLog(LevelError) {
-		l.logWithQueryAndCode(LevelError, message, extra, nil, true, errorCode)
+		errLog := &ErrorLog{
+			Type:    "Error",
+			Message: message,
+			Code:    errorCode,
+		}
+		errLog.StackTrace = l.getStackTrace()
+		l.write(LevelError, message, extra, nil, errLog, false)
 	}
 }
 
-// Critical logs a critical message with stack trace
+// Critical logs a critical message with stack trace.
 func (l *EnhancedLogger) Critical(message string, extra map[string]interface{}) {
 	if l.shouldLog(LevelCritical) {
-		l.logWithQuery(LevelCritical, message, extra, nil, true)
+		l.write(LevelCritical, message, extra, nil, nil, true)
 	}
 }
 
-// logWithQuery writes a log entry with optional query and stack trace
-func (l *EnhancedLogger) logWithQuery(level LogLevel, message string, extra map[string]interface{}, query *QueryLog, includeStackTrace bool) {
-	l.logWithQueryAndCode(level, message, extra, query, includeStackTrace, 0)
+// LogQuery logs a query execution.
+func (l *EnhancedLogger) LogQuery(sql string, args []interface{}, duration int64, err error) {
+	q := &QueryLog{SQL: sql, Args: args, Duration: duration}
+	if err != nil {
+		q.Error = err.Error()
+		l.write(LevelError, "Query execution failed", map[string]interface{}{
+			"query_duration_ms": duration,
+		}, q, nil, true)
+	} else {
+		l.write(LevelDebug, "Query executed", map[string]interface{}{
+			"query_duration_ms": duration,
+		}, q, nil, false)
+	}
 }
 
-// logWithQueryAndCode writes a log entry with error code
-func (l *EnhancedLogger) logWithQueryAndCode(level LogLevel, message string, extra map[string]interface{}, query *QueryLog, includeStackTrace bool, errorCode int) {
-	// Auto-detect method if not set
+// LogQueryWithParams logs a query with named parameters.
+func (l *EnhancedLogger) LogQueryWithParams(sql string, args []interface{}, params map[string]interface{}, duration int64, err error) {
+	q := &QueryLog{SQL: sql, Args: args, Params: params, Duration: duration}
+	if err != nil {
+		q.Error = err.Error()
+		l.write(LevelError, "Query with params failed", map[string]interface{}{
+			"query_duration_ms": duration,
+		}, q, nil, true)
+	} else {
+		l.write(LevelDebug, "Query with params executed", map[string]interface{}{
+			"query_duration_ms": duration,
+		}, q, nil, false)
+	}
+}
+
+// write is the internal write method.
+func (l *EnhancedLogger) write(
+	level LogLevel,
+	message string,
+	extra map[string]interface{},
+	query *QueryLog,
+	errLog *ErrorLog,
+	includeStack bool,
+) {
 	method := l.method
 	if method == "" {
 		method = l.getCallerMethod()
@@ -237,94 +258,73 @@ func (l *EnhancedLogger) logWithQueryAndCode(level LogLevel, message string, ext
 		Component:   l.component,
 		Layer:       l.layer,
 		Method:      method,
-		Handler:     l.handler,
 		Message:     message,
 		ExtraData:   extra,
 		Context:     l.context,
 		Query:       query,
 		Environment: l.environment,
-		ErrorCode:   errorCode,
 	}
 
-	// Add trace and request IDs from context
-	if traceID, ok := l.context["trace_id"].(string); ok {
-		entry.TraceID = traceID
+	// Promote IDs from context to top-level fields.
+	if v, ok := l.context["request_id"].(string); ok {
+		entry.RequestID = v
 	}
-	if requestID, ok := l.context["request_id"].(string); ok {
-		entry.RequestID = requestID
+	if v, ok := l.context["trace_id"].(string); ok {
+		entry.TraceID = v
 	}
-	if userID, ok := l.context["user_id"].(string); ok {
-		entry.UserID = userID
-	}
-
-	// Add stack trace for errors
-	if includeStackTrace {
-		entry.StackTrace = l.getStackTrace()
+	if v, ok := l.context["user_id"].(string); ok {
+		entry.UserID = v
 	}
 
-	// Serialize to JSON
+	if errLog != nil {
+		entry.Error = errLog
+	} else if includeStack {
+		entry.Error = &ErrorLog{
+			Type:       "Error",
+			Message:    message,
+			StackTrace: l.getStackTrace(),
+		}
+	}
+
 	bytes, err := json.Marshal(entry)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to serialize log entry: %v\n", err)
 		return
 	}
-
 	fmt.Fprintln(l.output, string(bytes))
 }
 
-// getCallerMethod automatically detects the calling method name
 func (l *EnhancedLogger) getCallerMethod() string {
-	pc, _, _, ok := runtime.Caller(4) // Skip 4 frames to get to the actual caller
+	pc, _, _, ok := runtime.Caller(4)
 	if !ok {
 		return "unknown"
 	}
-
 	fn := runtime.FuncForPC(pc)
 	if fn == nil {
 		return "unknown"
 	}
-
-	fullName := fn.Name()
-	parts := strings.Split(fullName, "/")
-	if len(parts) > 0 {
-		// Get last part and remove package prefix
-		lastPart := parts[len(parts)-1]
-		methodParts := strings.Split(lastPart, ".")
-		if len(methodParts) > 1 {
-			return methodParts[len(methodParts)-1]
-		}
-		return lastPart
+	parts := strings.Split(fn.Name(), "/")
+	last := parts[len(parts)-1]
+	methodParts := strings.Split(last, ".")
+	if len(methodParts) > 1 {
+		return methodParts[len(methodParts)-1]
 	}
-
-	return fullName
+	return last
 }
 
-// getStackTrace captures the current stack trace
 func (l *EnhancedLogger) getStackTrace() string {
 	buf := make([]byte, 4096)
 	n := runtime.Stack(buf, false)
 	return string(buf[:n])
 }
 
-// shouldLog checks if the log level should be logged
 func (l *EnhancedLogger) shouldLog(level LogLevel) bool {
-	levels := map[LogLevel]int{
+	order := map[LogLevel]int{
 		LevelDebug:    0,
 		LevelInfo:     1,
 		LevelWarning:  2,
 		LevelError:    3,
 		LevelCritical: 4,
 	}
-
-	return levels[level] >= levels[l.level]
-}
-
-// SetLevel sets the minimum log level
-func (l *EnhancedLogger) SetLevel(level LogLevel) {
-	l.level = level
-}
-
-// SetOutput sets the output file
-func (l *EnhancedLogger) SetOutput(output *os.File) {
-	l.output = output
+	return order[level] >= order[l.level]
 }

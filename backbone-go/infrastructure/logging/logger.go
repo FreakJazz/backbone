@@ -30,7 +30,8 @@ type Logger interface {
 	WithContext(ctx map[string]interface{}) Logger
 }
 
-// LogEntry represents a structured log entry
+// LogEntry represents a structured log entry.
+// Field names match the Python backbone exactly so both services emit the same JSON shape.
 type LogEntry struct {
 	Timestamp   time.Time              `json:"timestamp"`
 	Level       LogLevel               `json:"level"`
@@ -38,12 +39,12 @@ type LogEntry struct {
 	Component   string                 `json:"component,omitempty"`
 	Layer       string                 `json:"layer,omitempty"`
 	Message     string                 `json:"message"`
-	ExtraData   map[string]interface{} `json:"extra_data,omitempty"`
-	Context     map[string]interface{} `json:"context,omitempty"`
-	TraceID     string                 `json:"trace_id,omitempty"`
 	RequestID   string                 `json:"request_id,omitempty"`
+	TraceID     string                 `json:"trace_id,omitempty"`
 	UserID      string                 `json:"user_id,omitempty"`
 	Environment string                 `json:"environment,omitempty"`
+	ExtraData   map[string]interface{} `json:"extra_data,omitempty"`
+	Context     map[string]interface{} `json:"context,omitempty"`
 }
 
 // StructuredLogger implements the Logger interface

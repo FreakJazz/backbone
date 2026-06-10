@@ -5,272 +5,279 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/application/usecases"
+	"github.com/freakjazz/backbone-go/examples/clean-api-go/domain/entities"
 	"github.com/freakjazz/backbone-go/infrastructure/logging"
 	"github.com/freakjazz/backbone-go/interfaces/responses"
 )
 
-// ProductHandler handles product HTTP requests
+// ProductHandler handles all product HTTP requests.
 type ProductHandler struct {
-	createUseCase *usecases.CreateProductUseCase
-	getUseCase    *usecases.GetProductsUseCase
-	logger        *logging.EnhancedLogger
+	createUseCase       *usecases.CreateProductUseCase
+	getListUseCase      *usecases.GetProductsUseCase
+	getByIDUseCase      *usecases.GetProductByIDUseCase
+	updateUseCase       *usecases.UpdateProductUseCase
+	deleteUseCase       *usecases.DeleteProductUseCase
+	changeStatusUseCase *usecases.ChangeProductStatusUseCase
+	logger              *logging.EnhancedLogger
 }
 
-// NewProductHandler creates a new product handler
+// NewProductHandler creates a new product handler.
 func NewProductHandler(
-	createUseCase *usecases.CreateProductUseCase,
-	getUseCase *usecases.GetProductsUseCase,
+	create *usecases.CreateProductUseCase,
+	getList *usecases.GetProductsUseCase,
+	getByID *usecases.GetProductByIDUseCase,
+	update *usecases.UpdateProductUseCase,
+	del *usecases.DeleteProductUseCase,
+	changeStatus *usecases.ChangeProductStatusUseCase,
 	logger *logging.EnhancedLogger,
 ) *ProductHandler {
 	return &ProductHandler{
-		createUseCase: createUseCase,
-		getUseCase:    getUseCase,
-		logger:        logger,
+		createUseCase:       create,
+		getListUseCase:      getList,
+		getByIDUseCase:      getByID,
+		updateUseCase:       update,
+		deleteUseCase:       del,
+		changeStatusUseCase: changeStatus,
+		logger:              logger,
 	}
 }
 
-// CreateProduct handles product creation
-// @Summary Create a new product
-// @Description Create a new product in the system
-// @Tags products
-// @Accept json
-// @Produce json
-// @Param product body CreateProductRequest true "Product object"
-// @Success 201 {object} CreateProductResponse "Product created successfully"
-// @Failure 400 {object} ErrorResponse "Bad request"
-// @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /products [post]
+// ----------------------------------------------------------------------------
+// POST /api/products
+// ----------------------------------------------------------------------------
+
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	handlerLogger := h.logger.
-		WithLayer("interfaces").
-		WithHandler("ProductHandler").
-		WithMethod("CreateProduct").
-		WithContext(map[string]interface{}{
-			"request_id": r.Context().Value("request_id"),
-			"method":     r.Method,
-			"path":       r.URL.Path,
-		})
+	log := h.log("CreateProduct", r)
+	log.Info("Handling create product request", nil)
 
-	handlerLogger.Info("Handling create product request", nil)
-
-	// Parse request body
 	var input usecases.CreateProductInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		handlerLogger.ErrorWithCode("Invalid JSON payload", 13001001, map[string]interface{}{
-			"error": err.Error(),
-		})
-		response := responses.ErrorResponseBuilder.BadRequest("Invalid JSON payload", map[string]interface{}{
-			"error": err.Error(),
-		})
-		h.sendJSON(w, response.StatusCode, response)
+		log.ErrorWithCode("Invalid JSON payload", 13001001, map[string]interface{}{"error": err.Error()})
+		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
 
-	// Execute use case
 	output, err := h.createUseCase.Execute(r.Context(), input)
 	if err != nil {
-		handlerLogger.ErrorWithCode("Use case failed", 13001002, map[string]interface{}{
-			"error": err.Error(),
-		})
-		response := responses.ErrorResponseBuilder.FromException(err)
-		h.sendJSON(w, response.StatusCode, response)
+		log.ErrorWithCode("Create use case failed", 13001002, map[string]interface{}{"error": err.Error()})
+		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), nil)
+		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
 
-	// Success response
-	response := responses.ProcessResponseBuilder.Created(
-		"Product created successfully",
-		output.Product.ID,
-	)
-
-	handlerLogger.Info("Product created successfully", map[string]interface{}{
-		"product_id": output.Product.ID,
-	})
-
-	h.sendJSON(w, response.StatusCode, response)
+	log.Info("Product created", map[string]interface{}{"product_id": output.Product.ID})
+	h.sendJSON(w, http.StatusCreated, responses.ProcessResponseBuilder.Created(output.Product.ID))
 }
 
-// GetProducts handles getting products with filters
-// @Summary Get products with filters
-// @Description Retrieve products with optional filtering, sorting and pagination
-// @Tags products
-// @Accept json
-// @Produce json
-// @Param category query string false "Filter by category"
-// @Param min_price query number false "Minimum price filter"
-// @Param max_price query number false "Maximum price filter"
-// @Param in_stock query boolean false "Filter by stock availability"
-// @Param name query string false "Search by name pattern"
-// @Param page query integer false "Page number (default 1)"
-// @Param page_size query integer false "Page size (default 10)"
-// @Param sort_by query string false "Sort field (default created_at)"
-// @Param sort_order query string false "Sort order: asc or desc (default desc)"
-// @Success 200 {object} GetProductsResponse "Products retrieved successfully"
-// @Failure 500 {object} ErrorResponse "Internal server error"
-// @Router /products [get]
+// ----------------------------------------------------------------------------
+// GET /api/products
+// ----------------------------------------------------------------------------
+
 func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
-	handlerLogger := h.logger.
+	log := h.log("GetProducts", r)
+	log.Info("Handling get products request", nil)
+
+	input := h.parseQueryParameters(r)
+
+	output, err := h.getListUseCase.Execute(r.Context(), input)
+	if err != nil {
+		log.ErrorWithCode("Get list use case failed", 13001003, map[string]interface{}{"error": err.Error()})
+		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+
+	items := make([]map[string]interface{}, 0, len(output.Products))
+	for _, p := range output.Products {
+		items = append(items, productToMap(p))
+	}
+
+	resp := responses.PaginatedResponseBuilder.Success(
+		items,
+		int(output.TotalCount),
+		output.Page,
+		output.PageSize,
+		"Products retrieved successfully",
+	)
+
+	log.Info("Products retrieved", map[string]interface{}{
+		"count": len(items), "total": output.TotalCount,
+	})
+	h.sendJSON(w, http.StatusOK, resp)
+}
+
+// ----------------------------------------------------------------------------
+// GET /api/products/{id}
+// ----------------------------------------------------------------------------
+
+// GetProductByID returns the raw product object — no envelope wrapper.
+func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request, id string) {
+	log := h.log("GetProductByID", r)
+	log.Info("Handling get product by ID", map[string]interface{}{"product_id": id})
+
+	product, err := h.getByIDUseCase.Execute(r.Context(), id)
+	if err != nil {
+		resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+
+	h.sendJSON(w, http.StatusOK, responses.SimpleObjectResponseBuilder.Found(productToMap(product)))
+}
+
+// ----------------------------------------------------------------------------
+// PUT /api/products/{id}
+// ----------------------------------------------------------------------------
+
+func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request, id string) {
+	log := h.log("UpdateProduct", r)
+	log.Info("Handling update product request", map[string]interface{}{"product_id": id})
+
+	var input usecases.UpdateProductInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+	input.ID = id
+
+	product, err := h.updateUseCase.Execute(r.Context(), input)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+			h.sendJSON(w, resp.StatusCode, resp)
+			return
+		}
+		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), nil)
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+
+	log.Info("Product updated", map[string]interface{}{"product_id": product.ID})
+	h.sendJSON(w, http.StatusOK, responses.ProcessResponseBuilder.Updated(product.ID))
+}
+
+// ----------------------------------------------------------------------------
+// DELETE /api/products/{id}
+// ----------------------------------------------------------------------------
+
+func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request, id string) {
+	log := h.log("DeleteProduct", r)
+	log.Info("Handling delete product request", map[string]interface{}{"product_id": id})
+
+	if err := h.deleteUseCase.Execute(r.Context(), id); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+			h.sendJSON(w, resp.StatusCode, resp)
+			return
+		}
+		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+
+	log.Info("Product deleted", map[string]interface{}{"product_id": id})
+	h.sendJSON(w, http.StatusOK, responses.ProcessResponseBuilder.Deleted(id))
+}
+
+// ----------------------------------------------------------------------------
+// PATCH /api/products/{id}/status
+// ----------------------------------------------------------------------------
+
+func (h *ProductHandler) ChangeProductStatus(w http.ResponseWriter, r *http.Request, id string) {
+	log := h.log("ChangeProductStatus", r)
+	log.Info("Handling change product status", map[string]interface{}{"product_id": id})
+
+	var body struct {
+		Active bool `json:"active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+
+	input := usecases.ChangeProductStatusInput{ID: id, Active: body.Active}
+	if err := h.changeStatusUseCase.Execute(r.Context(), input); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+			h.sendJSON(w, resp.StatusCode, resp)
+			return
+		}
+		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		h.sendJSON(w, resp.StatusCode, resp)
+		return
+	}
+
+	log.Info("Product status changed", map[string]interface{}{"product_id": id, "active": body.Active})
+	h.sendJSON(w, http.StatusOK, responses.ProcessResponseBuilder.Updated(id))
+}
+
+// ----------------------------------------------------------------------------
+// helpers
+// ----------------------------------------------------------------------------
+
+func (h *ProductHandler) log(method string, r *http.Request) *logging.EnhancedLogger {
+	return h.logger.
 		WithLayer("interfaces").
 		WithHandler("ProductHandler").
-		WithMethod("GetProducts").
+		WithMethod(method).
 		WithContext(map[string]interface{}{
 			"request_id": r.Context().Value("request_id"),
 			"method":     r.Method,
 			"path":       r.URL.Path,
 		})
-
-	handlerLogger.Info("Handling get products request", nil)
-
-	// Parse query parameters
-	input := h.parseQueryParameters(r)
-
-	handlerLogger.Debug("Query parameters parsed", map[string]interface{}{
-		"category":  input.Category,
-		"min_price": input.MinPrice,
-		"max_price": input.MaxPrice,
-		"in_stock":  input.InStock,
-		"page":      input.Page,
-		"page_size": input.PageSize,
-	})
-
-	// Execute use case
-	output, err := h.getUseCase.Execute(r.Context(), input)
-	if err != nil {
-		handlerLogger.ErrorWithCode("Use case failed", 13001003, map[string]interface{}{
-			"error": err.Error(),
-		})
-		response := responses.ErrorResponseBuilder.FromException(err)
-		h.sendJSON(w, response.StatusCode, response)
-		return
-	}
-
-	// Convert products to response data
-	productsData := make([]map[string]interface{}, 0, len(output.Products))
-	for _, product := range output.Products {
-		productsData = append(productsData, map[string]interface{}{
-			"id":          product.ID,
-			"name":        product.Name,
-			"description": product.Description,
-			"price":       product.Price,
-			"category":    product.Category,
-			"stock":       product.Stock,
-			"active":      product.Active,
-			"created_at":  product.CreatedAt,
-			"updated_at":  product.UpdatedAt,
-		})
-	}
-
-	// Success response with pagination
-	response := responses.QueryResponseBuilder.SuccessWithPagination(
-		"Products retrieved successfully",
-		productsData,
-		output.Page,
-		output.PageSize,
-		int(output.TotalCount),
-	)
-
-	handlerLogger.Info("Products retrieved successfully", map[string]interface{}{
-		"count":       len(output.Products),
-		"total_count": output.TotalCount,
-		"page":        output.Page,
-	})
-
-	h.sendJSON(w, response.StatusCode, response)
 }
 
-// parseQueryParameters parses query parameters for filtering
-func (h *ProductHandler) parseQueryParameters(r *http.Request) usecases.GetProductsInput {
-	query := r.URL.Query()
-
-	// Parse numeric parameters
-	minPrice, _ := strconv.ParseFloat(query.Get("min_price"), 64)
-	maxPrice, _ := strconv.ParseFloat(query.Get("max_price"), 64)
-	page, _ := strconv.Atoi(query.Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	pageSize, _ := strconv.Atoi(query.Get("page_size"))
-	if pageSize < 1 {
-		pageSize = 10
-	}
-
-	// Parse boolean parameters
-	inStock := query.Get("in_stock") == "true"
-	active := query.Get("active") != "false" // Active por defecto
-
-	return usecases.GetProductsInput{
-		Category:    query.Get("category"),
-		MinPrice:    minPrice,
-		MaxPrice:    maxPrice,
-		InStock:     inStock,
-		Active:      active,
-		NamePattern: query.Get("name"),
-		Page:        page,
-		PageSize:    pageSize,
-		SortBy:      query.Get("sort_by"),
-		SortOrder:   query.Get("sort_order"),
-	}
-}
-
-// sendJSON sends a JSON response
 func (h *ProductHandler) sendJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
 }
 
-// CreateProductRequest represents the request body for creating a product
-type CreateProductRequest struct {
-	Name        string  `json:"name" example:"Laptop Dell XPS 15"`
-	Description string  `json:"description" example:"High performance laptop"`
-	Price       float64 `json:"price" example:"1500.00"`
-	Category    string  `json:"category" example:"Electronics"`
-	Stock       int     `json:"stock" example:"50"`
+func (h *ProductHandler) parseQueryParameters(r *http.Request) usecases.GetProductsInput {
+	q := r.URL.Query()
+
+	minPrice, _ := strconv.ParseFloat(q.Get("min_price"), 64)
+	maxPrice, _ := strconv.ParseFloat(q.Get("max_price"), 64)
+	page, _ := strconv.Atoi(q.Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(q.Get("page_size"))
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	return usecases.GetProductsInput{
+		Category:    q.Get("category"),
+		MinPrice:    minPrice,
+		MaxPrice:    maxPrice,
+		InStock:     q.Get("in_stock") == "true",
+		Active:      q.Get("active") != "false",
+		NamePattern: q.Get("name"),
+		Page:        page,
+		PageSize:    pageSize,
+		SortBy:      q.Get("sort_by"),
+		SortOrder:   q.Get("sort_order"),
+	}
 }
 
-// Product represents a product in the response
-type Product struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-	Category    string  `json:"category"`
-	Stock       int     `json:"stock"`
-	Active      bool    `json:"active"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
-}
-
-// CreateProductResponse represents the response for creating a product
-type CreateProductResponse struct {
-	Status     string `json:"status"`
-	StatusCode int    `json:"status_code"`
-	Message    string `json:"message"`
-	Data       struct {
-		ID string `json:"id"`
-	} `json:"data"`
-}
-
-// GetProductsResponse represents the response for getting products
-type GetProductsResponse struct {
-	Status     string    `json:"status"`
-	StatusCode int       `json:"status_code"`
-	Message    string    `json:"message"`
-	Data       []Product `json:"data"`
-	Pagination struct {
-		Page         int `json:"page"`
-		PageSize     int `json:"page_size"`
-		TotalRecords int `json:"total_records"`
-		TotalPages   int `json:"total_pages"`
-	} `json:"pagination"`
-}
-
-// ErrorResponse represents an error response
-type ErrorResponse struct {
-	Status       string                 `json:"status"`
-	StatusCode   int                    `json:"status_code"`
-	Message      string                 `json:"message"`
-	ErrorDetails map[string]interface{} `json:"error_details,omitempty"`
+// productToMap converts a Product entity to a plain map for JSON responses.
+func productToMap(p *entities.Product) map[string]interface{} {
+	return map[string]interface{}{
+		"id":          p.ID,
+		"name":        p.Name,
+		"description": p.Description,
+		"price":       p.Price,
+		"category":    p.Category,
+		"stock":       p.Stock,
+		"active":      p.Active,
+		"created_at":  p.CreatedAt,
+		"updated_at":  p.UpdatedAt,
+	}
 }

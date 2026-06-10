@@ -1,253 +1,205 @@
-// Package responses provides response builders for APIs
+// Package responses provides response builders for APIs.
+// Contracts match backbone Python exactly.
 package responses
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
-// ProcessResponse represents a successful process response
-type ProcessResponse struct {
-	Status     string                 `json:"status"`
-	StatusCode int                    `json:"status_code"`
-	Message    string                 `json:"message"`
-	Timestamp  string                 `json:"timestamp"`
-	RequestID  string                 `json:"request_id"`
-	Data       map[string]interface{} `json:"data,omitempty"`
+// ---------------------------------------------------------------------------
+// ProcessResponseBuilder  — CREATE / UPDATE / DELETE
+// Returns: {"id": "uuid"}
+// ---------------------------------------------------------------------------
+
+// IDResponse is the body returned by write operations (create, update, delete).
+type IDResponse struct {
+	ID string `json:"id"`
 }
 
-// ProcessResponseBuilder builds process responses (CREATE/UPDATE/DELETE)
 type processResponseBuilder struct{}
 
-// ProcessResponseBuilder is the singleton instance
+// ProcessResponseBuilder is the singleton instance.
 var ProcessResponseBuilder = &processResponseBuilder{}
 
-// Success creates a successful process response
-func (b *processResponseBuilder) Success(message string, data map[string]interface{}, statusCode int) ProcessResponse {
-	return ProcessResponse{
-		Status:     "success",
-		StatusCode: statusCode,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		Data:       data,
-	}
+// Created returns {"id": entityID} — use HTTP 201.
+func (b *processResponseBuilder) Created(entityID string) IDResponse {
+	return IDResponse{ID: entityID}
 }
 
-// Created creates a creation response (201)
-func (b *processResponseBuilder) Created(message string, entityID string) ProcessResponse {
-	return b.Success(message, map[string]interface{}{"id": entityID}, 201)
+// Updated returns {"id": entityID} — use HTTP 200.
+func (b *processResponseBuilder) Updated(entityID string) IDResponse {
+	return IDResponse{ID: entityID}
 }
 
-// Updated creates an update response (200)
-func (b *processResponseBuilder) Updated(message string, data map[string]interface{}) ProcessResponse {
-	return b.Success(message, data, 200)
+// Deleted returns {"id": entityID} — use HTTP 200.
+func (b *processResponseBuilder) Deleted(entityID string) IDResponse {
+	return IDResponse{ID: entityID}
 }
 
-// Deleted creates a deletion response (200)
-func (b *processResponseBuilder) Deleted(message string, resourceID string) ProcessResponse {
-	data := map[string]interface{}{}
-	if resourceID != "" {
-		data["resource_id"] = resourceID
-	}
-	return b.Success(message, data, 200)
+// ---------------------------------------------------------------------------
+// SimpleObjectResponseBuilder  — GET single resource
+// Returns the object directly, no wrapper.
+// ---------------------------------------------------------------------------
+
+type simpleObjectResponseBuilder struct{}
+
+// SimpleObjectResponseBuilder is the singleton instance.
+var SimpleObjectResponseBuilder = &simpleObjectResponseBuilder{}
+
+// Found returns the data map as-is.
+func (b *simpleObjectResponseBuilder) Found(data map[string]interface{}) map[string]interface{} {
+	return data
 }
 
-// Completed creates a completion response (200)
-func (b *processResponseBuilder) Completed(message string) ProcessResponse {
-	return b.Success(message, nil, 200)
+// ---------------------------------------------------------------------------
+// PaginatedResponseBuilder  — GET list
+// Returns:
+//
+//	{
+//	  "meta":       {"status": "success", "status_code": 200, "message": "..."},
+//	  "items":      [{}, ...],
+//	  "pagination": {"total_count": N, "page": P, "page_size": S, "total_pages": T}
+//	}
+// ---------------------------------------------------------------------------
+
+// PaginatedMeta is the meta section of a paginated response.
+type PaginatedMeta struct {
+	Status     string `json:"status"`
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
 }
 
-// Status creates a status response (200)
-func (b *processResponseBuilder) Status(message string, data map[string]interface{}) ProcessResponse {
-	return b.Success(message, data, 200)
-}
-
-// QueryResponse represents a successful query response
-type QueryResponse struct {
-	Status     string                   `json:"status"`
-	StatusCode int                      `json:"status_code"`
-	Message    string                   `json:"message"`
-	Timestamp  string                   `json:"timestamp"`
-	RequestID  string                   `json:"request_id"`
-	Data       []map[string]interface{} `json:"data"`
-	Pagination *PaginationInfo          `json:"pagination,omitempty"`
-}
-
-// PaginationInfo contains pagination metadata
+// PaginationInfo is the pagination section of a paginated response.
 type PaginationInfo struct {
-	Page         int `json:"page"`
-	PageSize     int `json:"page_size"`
-	TotalRecords int `json:"total_records"`
-	TotalPages   int `json:"total_pages"`
+	TotalCount int `json:"total_count"`
+	Page       int `json:"page"`
+	PageSize   int `json:"page_size"`
+	TotalPages int `json:"total_pages"`
 }
 
-// QueryResponseBuilder builds query responses (READ/GET)
-type queryResponseBuilder struct{}
-
-// QueryResponseBuilder is the singleton instance
-var QueryResponseBuilder = &queryResponseBuilder{}
-
-// Success creates a successful query response
-func (b *queryResponseBuilder) Success(message string, data []map[string]interface{}) QueryResponse {
-	return QueryResponse{
-		Status:     "success",
-		StatusCode: 200,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		Data:       data,
-	}
+// PaginatedResponse is the full paginated response body.
+type PaginatedResponse struct {
+	Meta       PaginatedMeta            `json:"meta"`
+	Items      []map[string]interface{} `json:"items"`
+	Pagination PaginationInfo           `json:"pagination"`
 }
 
-// SuccessWithPagination creates a paginated query response
-func (b *queryResponseBuilder) SuccessWithPagination(
+type paginatedResponseBuilder struct{}
+
+// PaginatedResponseBuilder is the singleton instance.
+var PaginatedResponseBuilder = &paginatedResponseBuilder{}
+
+// Success builds a paginated response.
+func (b *paginatedResponseBuilder) Success(
+	items []map[string]interface{},
+	totalCount, page, pageSize int,
 	message string,
-	data []map[string]interface{},
-	page, pageSize, totalRecords int,
-) QueryResponse {
-	totalPages := (totalRecords + pageSize - 1) / pageSize
-
-	return QueryResponse{
-		Status:     "success",
-		StatusCode: 200,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		Data:       data,
-		Pagination: &PaginationInfo{
-			Page:         page,
-			PageSize:     pageSize,
-			TotalRecords: totalRecords,
-			TotalPages:   totalPages,
+) PaginatedResponse {
+	if items == nil {
+		items = []map[string]interface{}{}
+	}
+	totalPages := 0
+	if pageSize > 0 {
+		totalPages = (totalCount + pageSize - 1) / pageSize
+	}
+	return PaginatedResponse{
+		Meta: PaginatedMeta{
+			Status:     "success",
+			StatusCode: 200,
+			Message:    message,
+		},
+		Items: items,
+		Pagination: PaginationInfo{
+			TotalCount: totalCount,
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: totalPages,
 		},
 	}
 }
 
-// Single creates a response for a single resource
-func (b *queryResponseBuilder) Single(message string, data map[string]interface{}) QueryResponse {
-	return QueryResponse{
-		Status:     "success",
-		StatusCode: 200,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		Data:       []map[string]interface{}{data},
-	}
+// Empty builds an empty paginated response.
+func (b *paginatedResponseBuilder) Empty(message string) PaginatedResponse {
+	return b.Success(nil, 0, 0, 0, message)
 }
 
-// Empty creates an empty response (no results)
-func (b *queryResponseBuilder) Empty(message string) QueryResponse {
-	return QueryResponse{
-		Status:     "success",
-		StatusCode: 200,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		Data:       []map[string]interface{}{},
-	}
-}
+// ---------------------------------------------------------------------------
+// ErrorResponseBuilder  — errors
+// Returns:
+//
+//	{
+//	  "request_id":   "uuid",
+//	  "status_code":  400,
+//	  "message":      "...",
+//	  "code_error":   "VALIDATION_ERROR",
+//	  "field_errors": {...}  // optional, validation only
+//	}
+// ---------------------------------------------------------------------------
 
-// ErrorResponse represents an error response
+// ErrorResponse is the standard error body.
 type ErrorResponse struct {
-	Status       string                 `json:"status"`
-	StatusCode   int                    `json:"status_code"`
-	Message      string                 `json:"message"`
-	Timestamp    string                 `json:"timestamp"`
-	RequestID    string                 `json:"request_id"`
-	ErrorDetails map[string]interface{} `json:"error_details,omitempty"`
+	RequestID   string            `json:"request_id"`
+	StatusCode  int               `json:"status_code"`
+	Message     string            `json:"message"`
+	CodeError   string            `json:"code_error"`
+	FieldErrors map[string]string `json:"field_errors,omitempty"`
 }
 
-// ErrorResponseBuilder builds error responses
 type errorResponseBuilder struct{}
 
-// ErrorResponseBuilder is the singleton instance
+// ErrorResponseBuilder is the singleton instance.
 var ErrorResponseBuilder = &errorResponseBuilder{}
 
-// FromException creates an error response from an exception
+func (b *errorResponseBuilder) build(statusCode int, message, codeError string) ErrorResponse {
+	return ErrorResponse{
+		RequestID:  uuid.New().String(),
+		StatusCode: statusCode,
+		Message:    message,
+		CodeError:  codeError,
+	}
+}
+
+// FromException creates an error response from any error value.
 func (b *errorResponseBuilder) FromException(err error) ErrorResponse {
-	// Try to extract exception details if it's a BaseKernelException
-	// For simplicity, we'll create a basic error response
-	return ErrorResponse{
-		Status:     "error",
-		StatusCode: 500,
-		Message:    err.Error(),
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		ErrorDetails: map[string]interface{}{
-			"error": err.Error(),
-		},
-	}
+	return b.build(500, err.Error(), "INTERNAL_SERVER_ERROR")
 }
 
-// BadRequest creates a 400 Bad Request response
-func (b *errorResponseBuilder) BadRequest(message string, details map[string]interface{}) ErrorResponse {
-	return ErrorResponse{
-		Status:       "error",
-		StatusCode:   400,
-		Message:      message,
-		Timestamp:    time.Now().UTC().Format(time.RFC3339),
-		RequestID:    uuid.New().String(),
-		ErrorDetails: details,
-	}
+// ValidationError creates a 400 validation error, optionally with field errors.
+func (b *errorResponseBuilder) ValidationError(message string, fieldErrors map[string]string) ErrorResponse {
+	r := b.build(400, message, "VALIDATION_ERROR")
+	r.FieldErrors = fieldErrors
+	return r
 }
 
-// Unauthorized creates a 401 Unauthorized response
+// NotFound creates a 404 error.
+func (b *errorResponseBuilder) NotFound(message string) ErrorResponse {
+	return b.build(404, message, "NOT_FOUND")
+}
+
+// Unauthorized creates a 401 error.
 func (b *errorResponseBuilder) Unauthorized(message string) ErrorResponse {
-	return ErrorResponse{
-		Status:     "error",
-		StatusCode: 401,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-	}
+	return b.build(401, message, "AUTHENTICATION_ERROR")
 }
 
-// Forbidden creates a 403 Forbidden response
+// Forbidden creates a 403 error.
 func (b *errorResponseBuilder) Forbidden(message string) ErrorResponse {
-	return ErrorResponse{
-		Status:     "error",
-		StatusCode: 403,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-	}
+	return b.build(403, message, "AUTHORIZATION_ERROR")
 }
 
-// NotFound creates a 404 Not Found response
-func (b *errorResponseBuilder) NotFound(message string, resourceType, resourceID string) ErrorResponse {
-	return ErrorResponse{
-		Status:     "error",
-		StatusCode: 404,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-		ErrorDetails: map[string]interface{}{
-			"resource_type": resourceType,
-			"resource_id":   resourceID,
-		},
-	}
+// Conflict creates a 409 error.
+func (b *errorResponseBuilder) Conflict(message string) ErrorResponse {
+	return b.build(409, message, "CONFLICT")
 }
 
-// InternalServerError creates a 500 Internal Server Error response
-func (b *errorResponseBuilder) InternalServerError() ErrorResponse {
-	return ErrorResponse{
-		Status:     "error",
-		StatusCode: 500,
-		Message:    "Internal server error",
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
+// InternalServerError creates a 500 error.
+func (b *errorResponseBuilder) InternalServerError(message string) ErrorResponse {
+	if message == "" {
+		message = "An unexpected error occurred"
 	}
+	return b.build(500, message, "INTERNAL_SERVER_ERROR")
 }
 
-// ServiceUnavailable creates a 503 Service Unavailable response
+// ServiceUnavailable creates a 503 error.
 func (b *errorResponseBuilder) ServiceUnavailable(message string) ErrorResponse {
-	return ErrorResponse{
-		Status:     "error",
-		StatusCode: 503,
-		Message:    message,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		RequestID:  uuid.New().String(),
-	}
+	return b.build(503, message, "SERVICE_UNAVAILABLE")
 }

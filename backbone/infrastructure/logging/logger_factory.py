@@ -84,10 +84,12 @@ class ConcreteStructuredLogger(StructuredLogger):
         context_data = LogContext.get_all_context()
         if context_data:
             entry.context.update(context_data)
-            if "rid" in context_data:
-                entry.rid = entry.rid or context_data["rid"]
+            if "request_id" in context_data:
+                entry.request_id = entry.request_id or context_data["request_id"]
             if "trace_id" in context_data:
                 entry.trace_id = entry.trace_id or context_data["trace_id"]
+            if "user_id" in context_data:
+                entry.user_id = entry.user_id or context_data["user_id"]
         
         # Escribir a cada salida
         for output in self.outputs:
