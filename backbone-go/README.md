@@ -15,122 +15,43 @@ go get github.com/freakjazz/backbone-go
 
 ---
 
-## Architecture
+## What it provides
 
-```
-backbone-go/
-├── domain/
-│   ├── exceptions/      # 8-digit codes (11xxxxxx domain)
-│   ├── ports/           # EventBus / EventStore interfaces
-│   ├── repositories/    # Repository interfaces
-│   └── specifications/  # Specification + Criteria + FilterParam + ParseFilterParams
-├── application/
-│   └── exceptions/      # 8-digit codes (10xxxxxx application)
-├── infrastructure/
-│   ├── config/          # Environment config (viper)
-│   ├── logging/         # Structured JSON logger (same shape as Python)
-│   ├── messaging/       # InMemory / Kafka / Redis event bus
-│   └── events/          # File-based event store
-└── interfaces/
-    └── responses/       # Response builders (no framework dependency)
-```
+| Package | Purpose |
+|---|---|
+| `domain/specifications` | `FilterParam` · `ParseFilterParams` · `ParseSortBy` · Specification + Criteria pattern |
+| `domain/exceptions` | 8-digit exception codes by layer |
+| `domain/repositories` | Repository interfaces |
+| `domain/ports` | `EventBus` · `EventStore` · `BaseEvent` |
+| `application/exceptions` | Application-layer exceptions |
+| `infrastructure/logging` | Structured JSON logger (`EnhancedLogger`) |
+| `infrastructure/messaging` | InMemory · Kafka · Redis event bus |
+| `infrastructure/events` | File-based event store |
+| `infrastructure/config` | Environment config (viper) |
+| `interfaces/responses` | HTTP response builders (no framework dependency) |
 
 ---
 
-## CQRS Project Structure
+## Response contracts
 
-```
-your_service/
-├── domain/
-│   ├── entities/
-│   ├── repositories/
-│   └── specifications/
-├── application/
-│   ├── commands/        ← write side: XxxCommand + XxxCommandHandler
-│   └── queries/         ← read side:  XxxQuery   + XxxQueryHandler
-├── infrastructure/
-│   ├── repositories/    ← concrete implementations
-│   └── seeders/         ← data seeders (not in main.go)
-└── interfaces/
-    └── http/
-        ├── handlers/
-        │   ├── xxx_command_handler.go  ← POST PUT DELETE PATCH
-        │   └── xxx_query_handler.go    ← GET (list + by id)
-        └── v1/
-            └── routes.go               ← versioned route registration
-```
+Identical to Python backbone.
 
-`main.go` — DI container only: infra → cmd handlers → qry handlers → HTTP adapters → routes.
-
----
-
-## Quick Start
-
-```go
-package main
-
-import (
-    "github.com/freakjazz/backbone-go/infrastructure/logging"
-    "github.com/freakjazz/backbone-go/interfaces/responses"
-    "github.com/freakjazz/backbone-go/domain/specifications"
-)
-
-func main() {
-    logger := logging.NewEnhancedLogger("my-service")
-
-    // Scoped logger — fluent, immutable
-    l := logger.
-        WithLayer("application").
-        WithHandler("CreateProductCommandHandler").
-        WithMethod("Handle").
-        WithContext(map[string]interface{}{"request_id": "abc-123"})
-
-    l.Info("Handling command", nil)
-
-    // Write → {"id": "uuid"}
-    created := responses.ProcessResponseBuilder.Created("uuid-123")   // HTTP 201
-    updated := responses.ProcessResponseBuilder.Updated("uuid-123")   // HTTP 200
-    deleted := responses.ProcessResponseBuilder.Deleted("uuid-123")   // HTTP 200
-
-    // Read single → raw object
-    product := responses.SimpleObjectResponseBuilder.Found(map[string]interface{}{
-        "id": "uuid-123", "name": "Laptop",
-    })
-
-    // Read list → paginated envelope
-    list := responses.PaginatedResponseBuilder.Success(
-        []map[string]interface{}{{"id": "1"}},
-        100, 1, 10, "Products retrieved successfully",
-    )
-
-    // Error → flat contract
-    notFound := responses.ErrorResponseBuilder.NotFound("Product not found")
-    badReq   := responses.ErrorResponseBuilder.ValidationError("Invalid input",
-        map[string]string{"name": "required"})
-    _ = created; _ = updated; _ = deleted; _ = product; _ = list; _ = notFound; _ = badReq
-}
-```
-
----
-
-## Response Contracts
-
-### Write (create / update / delete)
+### Write — `POST` `PUT` `DELETE` `PATCH`
 ```json
-{"id": "uuid-123"}
+{ "id": "uuid-123" }
 ```
 
 ### GET single
 ```json
-{"id": "uuid-123", "name": "Laptop", "price": 1500.0}
+{ "id": "uuid-123", "name": "Laptop", "price": 1500.0 }
 ```
 
 ### GET list
 ```json
 {
-  "meta":       {"status": "success", "status_code": 200, "message": "Products retrieved successfully"},
-  "items":      [{"id": "1"}, {"id": "2"}],
-  "pagination": {"total_count": 100, "page": 1, "page_size": 10}
+  "meta":       { "status": "success", "status_code": 200, "message": "..." },
+  "items":      [{ "id": "1" }],
+  "pagination": { "total_count": 100, "page": 1, "page_size": 10 }
 }
 ```
 
@@ -141,46 +62,56 @@ func main() {
   "status_code": 404,
   "message":     "Product not found",
   "code_error":  "NOT_FOUND",
-  "field_errors": {"name": "required"}
+  "field_errors": { "name": "required" }
 }
+```
+
+Usage:
+```go
+import "github.com/freakjazz/backbone-go/interfaces/responses"
+
+responses.ProcessResponseBuilder.Created("uuid-123")
+responses.SimpleObjectResponseBuilder.Found(productMap)
+responses.PaginatedResponseBuilder.Success(items, 100, 1, 10, "OK")
+responses.ErrorResponseBuilder.NotFound("Product not found")
+responses.ErrorResponseBuilder.ValidationError("Invalid input", map[string]string{"name": "required"})
 ```
 
 ---
 
-## Dynamic Filters (Specification Pattern)
+## Dynamic filters
 
-```
-GET /api/v1/products
-  ?filters=category,eq,Electronics,and
-  &filters=price,gt,500,and
-  &filters=stock,gt,0
-  &page=1&page_size=10&sort_by=price:desc
-```
+4 generic query params — no hard-coded fields:
 
-| Operator | Meaning | Example |
+| Param | Format | Example |
 |---|---|---|
-| `eq` | = | `name,eq,Laptop` |
-| `ne` | != | `active,ne,false` |
-| `gt` | > | `price,gt,500` |
-| `gte` | >= | `price,gte,500` |
-| `lt` | < | `stock,lt,10` |
-| `lte` | <= | `price,lte,2000` |
-| `contains` | LIKE %x% | `name,contains,laptop` |
-| `in` | IN (a\|b\|c) | `category,in,Electronics\|Furniture` |
-| `between` | BETWEEN a AND b | `price,between,100\|2000` |
-| `is_null` | IS NULL | `description,is_null` |
-| `is_not_null` | IS NOT NULL | `description,is_not_null` |
+| `filters` | repeated `field,operator,value[,condition]` | `filters=price,gt,500,and` |
+| `page` | integer | `page=1` |
+| `page_size` | integer | `page_size=10` |
+| `sort_by` | `field:direction` | `sort_by=price:desc` |
 
-Using it in a query handler:
+Supported operators: `eq` `ne` `gt` `gte` `lt` `lte` `contains` `in` `between` `is_null` `is_not_null`
 
 ```go
 import "github.com/freakjazz/backbone-go/domain/specifications"
 
-sortField, sortDir := specifications.ParseSortBy(query.SortBy)
-criteria := specifications.ParseFilterParams(query.Filters, page, pageSize, sortField, sortDir)
+sortField, sortDir := specifications.ParseSortBy("price:desc")
+criteria := specifications.ParseFilterParams(
+    []string{"category,eq,Electronics,and", "price,gt,500"},
+    1, 10, sortField, sortDir,
+)
 
-products, err := repo.FindByCriteria(ctx, criteria)
-total,    err := repo.Count(ctx, criteria)
+products, _ := repo.FindByCriteria(ctx, criteria)
+total, _    := repo.Count(ctx, criteria)
+```
+
+URL example:
+```
+GET /api/v1/products
+  ?filters=category,eq,Electronics,and
+  &filters=price,between,500|2000
+  &filters=name,contains,laptop
+  &page=1&page_size=10&sort_by=price:desc
 ```
 
 ---
@@ -188,44 +119,43 @@ total,    err := repo.Count(ctx, criteria)
 ## Logging
 
 ```go
+import "github.com/freakjazz/backbone-go/infrastructure/logging"
+
 logger := logging.NewEnhancedLogger("my-service")
 
 l := logger.
-    WithLayer("infrastructure").
-    WithHandler("ProductRepository").
-    WithMethod("FindByCriteria").
-    WithContext(map[string]interface{}{"request_id": "abc"})
+    WithLayer("application").
+    WithHandler("CreateProductCommandHandler").
+    WithMethod("Handle").
+    WithContext(map[string]interface{}{"request_id": "abc-123"})
 
-l.Info("Query executed", map[string]interface{}{"duration_ms": 12})
-l.ErrorWithCode("Not found", 12001001, nil)
-l.LogQuery("SELECT * FROM products WHERE id = $1", []interface{}{"abc"}, 12, nil)
+l.Info("Product created", map[string]interface{}{"product_id": "uuid"})
+l.ErrorWithCode("Validation failed", 10001001, nil)
+l.LogQuery("SELECT * FROM products WHERE id = $1", args, 12, nil)
 ```
 
-Log JSON (same shape as Python backbone):
+JSON output (same shape as Python):
 ```json
 {
   "timestamp": "2024-01-01T12:00:00Z",
   "level": "INFO",
   "service": "my-service",
-  "component": "ProductRepository",
-  "layer": "infrastructure",
-  "method": "FindByCriteria",
-  "message": "Query executed",
-  "request_id": "abc",
-  "environment": "development",
-  "extra_data": {"duration_ms": 12}
+  "component": "CreateProductCommandHandler",
+  "layer": "application",
+  "method": "Handle",
+  "message": "Product created",
+  "request_id": "abc-123",
+  "extra_data": { "product_id": "uuid" }
 }
 ```
 
 ---
 
-## Exception System (8 digits)
+## Exception system — 8-digit codes
 
 ```
-10xxxxxx  Application
-11xxxxxx  Domain
-12xxxxxx  Infrastructure
-13xxxxxx  Interfaces
+10xxxxxx  Application     11xxxxxx  Domain
+12xxxxxx  Infrastructure  13xxxxxx  Interfaces
 ```
 
 ```go
@@ -236,10 +166,84 @@ err := exceptions.NewDomainException(11001001, "Name too short", nil)
 
 ---
 
-## Full CRUD Example
+## Project structure — Clean Architecture + CQRS
+
+```
+your_service/
+├── domain/
+│   ├── entities/
+│   ├── repositories/          # interfaces
+│   └── specifications/        # domain-specific specs
+├── application/
+│   ├── commands/              # write side: XxxCommand + XxxCommandHandler
+│   └── queries/               # read side:  XxxQuery   + XxxQueryHandler
+├── infrastructure/
+│   ├── repositories/          # concrete implementations
+│   └── seeders/               # data seeders
+└── interfaces/
+    └── http/
+        ├── handlers/
+        │   ├── product_command_handler.go  # POST PUT DELETE PATCH
+        │   └── product_query_handler.go    # GET
+        └── v1/
+            └── routes.go                   # versioned route registration
+```
+
+`main.go` — DI container only. No business logic.
+
+```go
+func main() {
+    // 1. Infrastructure
+    repo := repositories.NewMemoryProductRepository(logger)
+    seeders.NewProductSeeder(repo, logger).Run(ctx)
+
+    // 2. Commands (write side)
+    createCmd := commands.NewCreateProductCommandHandler(repo, logger)
+    updateCmd := commands.NewUpdateProductCommandHandler(repo, logger)
+
+    // 3. Queries (read side)
+    getListQry  := queries.NewGetProductsQueryHandler(repo, logger)
+    getByIDQry  := queries.NewGetProductByIDQueryHandler(repo, logger)
+
+    // 4. HTTP adapters
+    cmdHandler := handlers.NewProductCommandHandler(createCmd, updateCmd, ...)
+    qryHandler := handlers.NewProductQueryHandler(getListQry, getByIDQry, logger)
+
+    // 5. Routes
+    mux := http.NewServeMux()
+    v1.RegisterRoutes(mux, cmdHandler, qryHandler)
+}
+```
+
+---
+
+## Event bus
+
+```go
+import (
+    "github.com/freakjazz/backbone-go/domain/ports"
+    "github.com/freakjazz/backbone-go/infrastructure/messaging"
+)
+
+bus := messaging.NewInMemoryEventBus()
+
+bus.Subscribe(ctx, "ProductCreated", func(e *ports.BaseEvent) error {
+    fmt.Println(e.Data["id"])
+    return nil
+})
+
+event := ports.NewBaseEvent("ProductCreated", "product-api",
+    map[string]interface{}{"id": "uuid-123"}, "product-api", "create")
+bus.Publish(ctx, event)
+```
+
+---
+
+## Full example
 
 ```bash
 cd examples/clean-api-go
+go mod tidy
 go run main.go
 # → http://localhost:8080
 # → http://localhost:8080/swagger/
@@ -250,4 +254,4 @@ go run main.go
 ## Related
 
 - [backbone (Python)](../README.md)
-- [Examples comparison](../examples/README.md)
+- [Examples](../examples/README.md)
