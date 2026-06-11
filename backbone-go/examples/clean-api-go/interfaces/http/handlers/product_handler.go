@@ -239,11 +239,18 @@ func (h *ProductHandler) sendJSON(w http.ResponseWriter, status int, data interf
 	json.NewEncoder(w).Encode(data)
 }
 
+// parseQueryParameters reads the 4 generic query params:
+//
+//	filters   — repeated, each: "field,operator,value[,condition]"
+//	            operators : eq ne gt gte lt lte contains in between is_null is_not_null
+//	            conditions: and (default) | or
+//	            examples  : ?filters=category,eq,Electronics,and&filters=price,gt,500
+//	page      — int (default 1)
+//	page_size — int (default 10)
+//	sort_by   — "field:direction"  e.g. price:desc  (default created_at:desc)
 func (h *ProductHandler) parseQueryParameters(r *http.Request) usecases.GetProductsInput {
 	q := r.URL.Query()
 
-	minPrice, _ := strconv.ParseFloat(q.Get("min_price"), 64)
-	maxPrice, _ := strconv.ParseFloat(q.Get("max_price"), 64)
 	page, _ := strconv.Atoi(q.Get("page"))
 	if page < 1 {
 		page = 1
@@ -254,16 +261,10 @@ func (h *ProductHandler) parseQueryParameters(r *http.Request) usecases.GetProdu
 	}
 
 	return usecases.GetProductsInput{
-		Category:    q.Get("category"),
-		MinPrice:    minPrice,
-		MaxPrice:    maxPrice,
-		InStock:     q.Get("in_stock") == "true",
-		Active:      q.Get("active") != "false",
-		NamePattern: q.Get("name"),
-		Page:        page,
-		PageSize:    pageSize,
-		SortBy:      q.Get("sort_by"),
-		SortOrder:   q.Get("sort_order"),
+		Filters:  q["filters"], // all values of the repeated "filters" param
+		Page:     page,
+		PageSize: pageSize,
+		SortBy:   q.Get("sort_by"),
 	}
 }
 

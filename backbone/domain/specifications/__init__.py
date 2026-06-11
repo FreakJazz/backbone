@@ -23,7 +23,7 @@ from .filter_specification import (
     IsNotNullSpecification,
 )
 from .filter_parser import FilterParser
-from .sort_specification import SortSpecification, SortDirection, MultipleSortSpecification
+from .sort_specification import SortSpecification, SortDirection, MultipleSortSpecification, SortParser
 
 __all__ = [
     "Specification",
@@ -47,4 +47,5 @@ __all__ = [
     "SortSpecification",
     "SortDirection",
     "MultipleSortSpecification",
+    "SortParser",
 ]

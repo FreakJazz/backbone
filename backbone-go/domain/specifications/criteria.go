@@ -139,36 +139,44 @@ func NewCriteriaBuilder() *CriteriaBuilder {
 	}
 }
 
-// Where adds a specification
+// Where adds an AND specification.
 func (b *CriteriaBuilder) Where(field, operator string, value interface{}) *CriteriaBuilder {
-	var spec Specification
-
-	switch operator {
-	case "=", "==":
-		spec = NewEqualSpecification(field, value)
-	case "!=", "<>":
-		spec = NewNotEqualSpecification(field, value)
-	case ">":
-		spec = NewGreaterThanSpecification(field, value)
-	case "<":
-		spec = NewLessThanSpecification(field, value)
-	case "LIKE":
-		if strVal, ok := value.(string); ok {
-			spec = NewLikeSpecification(field, strVal)
-		}
-	case "IS NULL":
-		spec = NewIsNullSpecification(field)
-	default:
-		spec = NewEqualSpecification(field, value)
-	}
-
+	spec := b.buildSpec(field, operator, value)
 	if b.criteria.Specification == nil {
 		b.criteria.Specification = spec
 	} else {
 		b.criteria.Specification = b.criteria.Specification.And(spec)
 	}
-
 	return b
+}
+
+// buildSpec creates the right Specification for the given operator.
+func (b *CriteriaBuilder) buildSpec(field, operator string, value interface{}) Specification {
+	switch operator {
+	case "=", "==":
+		return NewEqualSpecification(field, value)
+	case "!=", "<>":
+		return NewNotEqualSpecification(field, value)
+	case ">":
+		return NewGreaterThanSpecification(field, value)
+	case ">=":
+		return NewGreaterThanOrEqualSpecification(field, value)
+	case "<":
+		return NewLessThanSpecification(field, value)
+	case "<=":
+		return NewLessThanOrEqualSpecification(field, value)
+	case "LIKE", "like":
+		if strVal, ok := value.(string); ok {
+			return NewLikeSpecification(field, strVal)
+		}
+		return NewEqualSpecification(field, value)
+	case "IS NULL", "is_null":
+		return NewIsNullSpecification(field)
+	case "IS NOT NULL", "is_not_null":
+		return NewNotEqualSpecification(field, nil)
+	default:
+		return NewEqualSpecification(field, value)
+	}
 }
 
 // WhereIn adds an IN specification
@@ -184,16 +192,36 @@ func (b *CriteriaBuilder) WhereIn(field string, values []interface{}) *CriteriaB
 	return b
 }
 
-// WhereBetween adds a BETWEEN specification
+// WhereBetween adds a BETWEEN specification (AND).
 func (b *CriteriaBuilder) WhereBetween(field string, min, max interface{}) *CriteriaBuilder {
 	spec := NewBetweenSpecification(field, min, max)
-
 	if b.criteria.Specification == nil {
 		b.criteria.Specification = spec
 	} else {
 		b.criteria.Specification = b.criteria.Specification.And(spec)
 	}
+	return b
+}
 
+// OrWhereIn adds an IN specification with OR condition.
+func (b *CriteriaBuilder) OrWhereIn(field string, values []interface{}) *CriteriaBuilder {
+	spec := NewInSpecification(field, values)
+	if b.criteria.Specification == nil {
+		b.criteria.Specification = spec
+	} else {
+		b.criteria.Specification = b.criteria.Specification.Or(spec)
+	}
+	return b
+}
+
+// OrWhereBetween adds a BETWEEN specification with OR condition.
+func (b *CriteriaBuilder) OrWhereBetween(field string, min, max interface{}) *CriteriaBuilder {
+	spec := NewBetweenSpecification(field, min, max)
+	if b.criteria.Specification == nil {
+		b.criteria.Specification = spec
+	} else {
+		b.criteria.Specification = b.criteria.Specification.Or(spec)
+	}
 	return b
 }
 

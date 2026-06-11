@@ -74,7 +74,6 @@ type PaginationInfo struct {
 	TotalCount int `json:"total_count"`
 	Page       int `json:"page"`
 	PageSize   int `json:"page_size"`
-	TotalPages int `json:"total_pages"`
 }
 
 // PaginatedResponse is the full paginated response body.
@@ -98,10 +97,6 @@ func (b *paginatedResponseBuilder) Success(
 	if items == nil {
 		items = []map[string]interface{}{}
 	}
-	totalPages := 0
-	if pageSize > 0 {
-		totalPages = (totalCount + pageSize - 1) / pageSize
-	}
 	return PaginatedResponse{
 		Meta: PaginatedMeta{
 			Status:     "success",
@@ -113,7 +108,6 @@ func (b *paginatedResponseBuilder) Success(
 			TotalCount: totalCount,
 			Page:       page,
 			PageSize:   pageSize,
-			TotalPages: totalPages,
 		},
 	}
 }

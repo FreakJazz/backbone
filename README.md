@@ -1,11 +1,11 @@
 # backbone
 
-Clean Architecture kernel for Python microservices.
+Clean Architecture + CQRS kernel for Python microservices.
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-> Go port: [backbone-go](./backbone-go/README.md)
+> Go port: [backbone-go](./backbone-go/README.md) — identical contracts, same architecture.
 
 ---
 
@@ -31,119 +31,148 @@ pip install -e .
 ```
 backbone/
 ├── domain/
-│   ├── exceptions/      # BaseKernelException (8-digit codes)
-│   ├── ports/           # EventBus / EventStore / BaseEvent
-│   ├── repositories/    # IRepository / IReadOnlyRepository interfaces
-│   └── specifications/  # Specification pattern
+│   ├── exceptions/        # BaseKernelException (8-digit codes: 11xxxxxx)
+│   ├── ports/             # EventBus / EventStore / BaseEvent
+│   ├── repositories/      # IRepository / IReadOnlyRepository interfaces
+│   └── specifications/    # Specification + FilterParser + SortParser
 ├── application/
-│   └── exceptions/      # Application-layer exceptions (10xxxxxx)
+│   └── exceptions/        # Application exceptions (10xxxxxx)
 ├── infrastructure/
-│   ├── logging/         # Structured JSON logger
-│   ├── persistence/     # SQLAlchemy async adapter
-│   └── messaging/       # Kafka / RabbitMQ / Redis adapters
+│   ├── logging/           # Structured JSON logger (same shape as backbone-go)
+│   ├── persistence/       # SQLAlchemy async adapter
+│   └── messaging/         # Kafka / RabbitMQ / Redis adapters
 └── interfaces/
-    └── response_builders/  # Response builders (no framework dependency)
+    └── response_builders/ # Response builders (no framework dependency)
 ```
+
+---
+
+## CQRS Project Structure
+
+```
+your_service/
+├── domain/
+│   ├── entities/
+│   ├── repositories/
+│   └── specifications/
+├── application/
+│   ├── commands/          ← write side: CreateXxxCommand + XxxCommandHandler
+│   └── queries/           ← read side:  GetXxxQuery     + XxxQueryHandler
+├── infrastructure/
+│   ├── repositories/      ← concrete implementations
+│   └── seeders/           ← data seeders (not in main.py)
+└── interfaces/
+    └── http/
+        ├── handlers/
+        │   ├── xxx_command_handler.py   ← POST PUT DELETE PATCH
+        │   └── xxx_query_handler.py     ← GET (list + by id)
+        └── v1/
+            └── routes.py                ← versioned route registration
+```
+
+`main.py` — DI container only: wires infra → command handlers → query handlers → HTTP adapters → routes.
 
 ---
 
 ## Quick Start
 
 ```python
-from backbone.infrastructure.logging import LoggerFactory
+from backbone.infrastructure.logging import LoggerFactory, LogContext
 from backbone.interfaces.response_builders import (
     ProcessResponseBuilder,
     SimpleObjectResponseBuilder,
     PaginatedResponseBuilder,
     ErrorResponseBuilder,
 )
-from backbone.domain.exceptions import DomainException
+from backbone.domain.specifications import FilterParser, SortParser
 
-# --- Logging ---
 logger = LoggerFactory.create_logger("my-service")
-logger.info("Server starting", extra_data={"port": 8080})
 
-# Scoped logger
-from backbone.infrastructure.logging import LogContext
-with LogContext(request_id="abc-123", user_id="user-456"):
-    logger.info("Processing request")  # request_id + user_id included automatically
-
-# --- Exceptions ---
-try:
-    raise DomainException(11001001, "Product name too short")
-except DomainException as e:
-    logger.log_kernel_exception(e)
-
-# --- Response builders ---
-
-# POST / PUT / DELETE → {"id": "uuid"}
-created = ProcessResponseBuilder.created("uuid-123")
-updated = ProcessResponseBuilder.updated("uuid-123")
-deleted = ProcessResponseBuilder.deleted("uuid-123")
-
-# GET single → raw object (no envelope)
-product = SimpleObjectResponseBuilder.found({"id": "uuid-123", "name": "Laptop"})
-
-# GET list → paginated envelope
-listing = PaginatedResponseBuilder.success(
-    items=[{"id": "1"}, {"id": "2"}],
-    total_count=100,
-    page=1,
-    page_size=10,
-    message="Products retrieved successfully",
-)
-
-# Errors → flat contract
-not_found  = ErrorResponseBuilder.not_found_error("Product not found")
-bad_req    = ErrorResponseBuilder.validation_error("Invalid input", field_errors={"name": "required"})
-server_err = ErrorResponseBuilder.internal_server_error()
+# Automatic context propagation in all logs inside the block
+with LogContext(request_id="abc-123", user_id="user-1"):
+    logger.info("Processing request")
 ```
 
 ---
 
 ## Response Contracts
 
-### Create / Update / Delete
+### Write operations (create / update / delete)
 ```json
 {"id": "uuid-123"}
 ```
+HTTP: `201` create · `200` update / delete
 
 ### GET single resource
 ```json
-{
-  "id": "uuid-123",
-  "name": "Laptop",
-  "price": 1500.00
-}
+{"id": "uuid-123", "name": "Laptop", "price": 1500.0}
 ```
+Raw object — no envelope.
 
 ### GET list (paginated)
 ```json
 {
-  "meta": {
-    "status": "success",
-    "status_code": 200,
-    "message": "Products retrieved successfully"
-  },
-  "items": [{"id": "1"}, {"id": "2"}],
-  "pagination": {
-    "total_count": 100,
-    "page": 1,
-    "page_size": 10,
-    "total_pages": 10
-  }
+  "meta":       {"status": "success", "status_code": 200, "message": "Products retrieved successfully"},
+  "items":      [{"id": "1"}, {"id": "2"}],
+  "pagination": {"total_count": 100, "page": 1, "page_size": 10}
 }
 ```
 
 ### Error
 ```json
 {
-  "request_id": "uuid",
-  "status_code": 400,
-  "message": "Validation failed",
-  "code_error": "VALIDATION_ERROR",
+  "request_id":  "uuid",
+  "status_code": 404,
+  "message":     "Product not found",
+  "code_error":  "NOT_FOUND",
   "field_errors": {"name": "required"}
 }
+```
+
+---
+
+## Dynamic Filters (Specification Pattern)
+
+Query params — 4 generic parameters:
+
+| Param | Description |
+|---|---|
+| `filters` | Repeated. Format: `field,operator,value[,condition]` |
+| `page` | Page number (default `1`) |
+| `page_size` | Items per page (default `10`) |
+| `sort_by` | `field:direction` — e.g. `price:desc` |
+
+```
+GET /api/v1/products
+  ?filters=category,eq,Electronics,and
+  &filters=price,gt,500,and
+  &filters=stock,gt,0
+  &page=1&page_size=10&sort_by=price:desc
+```
+
+| Operator | Meaning | Example |
+|---|---|---|
+| `eq` | = | `name,eq,Laptop` |
+| `ne` | != | `active,ne,false` |
+| `gt` | > | `price,gt,500` |
+| `gte` | >= | `price,gte,500` |
+| `lt` | < | `stock,lt,10` |
+| `lte` | <= | `price,lte,2000` |
+| `contains` | LIKE %x% | `name,contains,laptop` |
+| `in` | IN (a\|b\|c) | `category,in,Electronics\|Furniture` |
+| `between` | BETWEEN a AND b | `price,between,100\|2000` |
+| `is_null` | IS NULL | `description,is_null` |
+| `is_not_null` | IS NOT NULL | `description,is_not_null` |
+
+Using it in a query handler:
+
+```python
+from backbone.domain.specifications import FilterParser, SortParser
+
+spec   = FilterParser().parse_filters(query.filters)   # → Specification
+sorts  = SortParser().parse_sort("price,desc").to_sort_criteria()  # → [("price","desc")]
+
+products = repo.find_by_criteria(filters=spec, sorts=sorts, page=1, page_size=10)
 ```
 
 ---
@@ -151,36 +180,34 @@ server_err = ErrorResponseBuilder.internal_server_error()
 ## Logging
 
 ```python
-from backbone.infrastructure.logging import LoggerFactory, LogContext
+from backbone.infrastructure.logging import LoggerFactory, LogContext, with_log_context
 
 logger = LoggerFactory.create_logger("my-service", environment="production")
 
-# Automatic context propagation
+# Scoped via context manager
 with LogContext(request_id="abc", user_id="user-1"):
-    logger.info("Handling request")
-    logger.error("Something failed", exception=exc)
+    logger.info("Processing", extra_data={"action": "create"})
+    logger.error("Failed", exception=exc, error_code=10001001)
 
-# Decorator
-from backbone.infrastructure.logging import with_log_context
-
-@with_log_context(operation="create_user")
-def create_user(data):
-    logger.info("Creating user")
+# Scoped via decorator
+@with_log_context(operation="create_product")
+def create(data):
+    logger.info("Creating product")
 ```
 
-Log entry JSON (same shape as backbone-go):
+Log JSON (same shape as backbone-go):
 ```json
 {
   "timestamp": "2024-01-01T12:00:00.000Z",
   "level": "INFO",
   "service": "my-service",
-  "component": "UserHandler",
-  "layer": "interfaces",
-  "message": "Handling request",
+  "component": "CreateProductCommandHandler",
+  "layer": "application",
+  "message": "Product created",
   "request_id": "abc",
   "user_id": "user-1",
   "environment": "production",
-  "extra_data": {}
+  "extra_data": {"product_id": "uuid"}
 }
 ```
 
@@ -189,51 +216,37 @@ Log entry JSON (same shape as backbone-go):
 ## Exception System (8 digits)
 
 ```
-Layer codes:
-  10xxxxxx  Application
-  11xxxxxx  Domain
-  12xxxxxx  Infrastructure
-  13xxxxxx  Interfaces
+10xxxxxx  Application
+11xxxxxx  Domain
+12xxxxxx  Infrastructure
+13xxxxxx  Interfaces
 ```
 
 ```python
 from backbone.domain.exceptions import DomainException, BusinessRuleViolationException
 from backbone.application.exceptions import ValidationException, ResourceNotFoundException
 
-raise DomainException(11001001, "Product name must be at least 3 characters")
-raise BusinessRuleViolationException("Cannot sell inactive product")
+raise DomainException(11001001, "Name too short")
 raise ValidationException("Invalid input", field="price")
 raise ResourceNotFoundException("Product", resource_id="abc-123")
 ```
 
 ---
 
-## Specification Pattern
-
-```python
-from backbone.domain.specifications import Specification
-
-class ActiveProductSpec(Specification):
-    def is_satisfied_by(self, product) -> bool:
-        return product.active
-
-    def to_expression(self):
-        return {"active": True}
-
-spec = ActiveProductSpec()
-filtered = [p for p in products if spec.is_satisfied_by(p)]
-combined = ActiveProductSpec() & PriceRangeSpec(100, 500)
-```
-
----
-
 ## Full CRUD Example
 
-See [`examples/clean_api_python/`](./examples/clean_api_python/) for a FastAPI-based example with full CRUD.
+See [`examples/clean_api_python/`](./examples/clean_api_python/).
+
+```bash
+cd examples/clean_api_python
+pip install flask flask-restx
+python main.py
+# → http://localhost:5000/docs
+```
 
 ---
 
 ## Related
 
 - [backbone-go](./backbone-go/README.md)
-- [Examples](./examples/README.md)
+- [Examples comparison](./examples/README.md)

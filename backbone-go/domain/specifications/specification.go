@@ -121,6 +121,38 @@ func NewLessThanSpecification(field string, value interface{}) *LessThanSpecific
 	}
 }
 
+// GreaterThanOrEqualSpecification checks if field >= value
+type GreaterThanOrEqualSpecification struct {
+	*BaseSpecification
+}
+
+// NewGreaterThanOrEqualSpecification creates a >= specification
+func NewGreaterThanOrEqualSpecification(field string, value interface{}) *GreaterThanOrEqualSpecification {
+	return &GreaterThanOrEqualSpecification{
+		BaseSpecification: &BaseSpecification{
+			field:    field,
+			operator: ">=",
+			value:    value,
+		},
+	}
+}
+
+// LessThanOrEqualSpecification checks if field <= value
+type LessThanOrEqualSpecification struct {
+	*BaseSpecification
+}
+
+// NewLessThanOrEqualSpecification creates a <= specification
+func NewLessThanOrEqualSpecification(field string, value interface{}) *LessThanOrEqualSpecification {
+	return &LessThanOrEqualSpecification{
+		BaseSpecification: &BaseSpecification{
+			field:    field,
+			operator: "<=",
+			value:    value,
+		},
+	}
+}
+
 // InSpecification checks if field is in a list of values
 type InSpecification struct {
 	field  string

@@ -2,7 +2,6 @@
 Paginated Response Builder - Constructor de respuestas paginadas
 """
 from typing import Dict, Any, List, Optional
-from math import ceil
 
 
 class PaginatedResponseBuilder:
@@ -37,8 +36,6 @@ class PaginatedResponseBuilder:
         message: str = "Items retrieved successfully",
         status_code: int = 200,
     ) -> Dict[str, Any]:
-        total_pages = ceil(total_count / page_size) if page_size > 0 else 0
-
         return {
             "meta": {
                 "status": "success",
@@ -50,7 +47,6 @@ class PaginatedResponseBuilder:
                 "total_count": total_count,
                 "page": page,
                 "page_size": page_size,
-                "total_pages": total_pages,
             },
         }
 
