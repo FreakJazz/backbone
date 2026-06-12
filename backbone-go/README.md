@@ -58,23 +58,48 @@ Identical to Python backbone.
 ### Error
 ```json
 {
-  "request_id":  "uuid",
-  "status_code": 404,
-  "message":     "Product not found",
-  "code_error":  "NOT_FOUND",
-  "field_errors": { "name": "required" }
+  "error_code":  130000001,
+  "message":     "name is required",
+  "rid":         "a8866c5e750643dab7cd2a8927bbcc08",
+  "status_code": 400
 }
 ```
 
+`field_errors` aparece solo en errores de validación con detalle por campo:
+```json
+{
+  "error_code":  130000001,
+  "message":     "invalid request body",
+  "rid":         "a8866c5e750643dab7cd2a8927bbcc08",
+  "status_code": 400,
+  "field_errors": { "name": "required", "price": "must be greater than 0" }
+}
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `error_code` | int (9 dígitos) | Código estructurado por capa — siempre presente |
+| `message` | string | Mensaje legible |
+| `rid` | string | Request ID de traza (auto-generado si no viene del middleware) |
+| `status_code` | int | HTTP status code |
+| `field_errors` | object | Solo en errores de validación — omitido si no aplica |
+
 Usage:
 ```go
-import "github.com/freakjazz/backbone-go/interfaces/responses"
+import (
+    "github.com/freakjazz/backbone-go/interfaces/responses"
+    bberrors "github.com/freakjazz/backbone-go/errors"
+)
 
 responses.ProcessResponseBuilder.Created("uuid-123")
 responses.SimpleObjectResponseBuilder.Found(productMap)
 responses.PaginatedResponseBuilder.Success(items, 100, 1, 10, "OK")
 responses.ErrorResponseBuilder.NotFound("Product not found")
-responses.ErrorResponseBuilder.ValidationError("Invalid input", map[string]string{"name": "required"})
+responses.ErrorResponseBuilder.ValidationError("invalid request body",
+    responses.ErrorOpts{
+        FieldErrors: map[string]string{"name": "required"},
+    },
+)
 ```
 
 ---
@@ -151,17 +176,48 @@ JSON output (same shape as Python):
 
 ---
 
-## Exception system — 8-digit codes
+## Exception system — códigos de 9 dígitos
+
+Formato: `LL_NNNNNNN` donde `LL` = prefijo de capa, `NNNNNNN` = secuencia de 7 dígitos.
 
 ```
-10xxxxxx  Application     11xxxxxx  Domain
-12xxxxxx  Infrastructure  13xxxxxx  Interfaces
+11xxxxxxx  Domain          12xxxxxxx  Application
+13xxxxxxx  Interface       14xxxxxxx  Infrastructure
 ```
+
+| Código | Capa | Constante Go |
+|---|---|---|
+| `110000001` | Domain | `bberrors.DomainBusinessRuleViolation` |
+| `110000002` | Domain | `bberrors.DomainInvalidEntityState` |
+| `110000003` | Domain | `bberrors.DomainInvalidValueObject` |
+| `110000004` | Domain | `bberrors.DomainAggregateInconsistency` |
+| `110000005` | Domain | `bberrors.DomainInvalidFilter` |
+| `120000001` | Application | `bberrors.AppUseCaseFailure` |
+| `120000002` | Application | `bberrors.AppValidationFailure` |
+| `120000003` | Application | `bberrors.AppAuthorizationDenied` |
+| `120000004` | Application | `bberrors.AppResourceNotFound` |
+| `120000005` | Application | `bberrors.AppExternalServiceFailure` |
+| `120000006` | Application | `bberrors.AppConflict` |
+| `130000001` | Interface | `bberrors.IfcInvalidRequestBody` |
+| `130000002` | Interface | `bberrors.IfcMethodNotAllowed` |
+| `130000003` | Interface | `bberrors.IfcRouteNotFound` |
+| `130000004` | Interface | `bberrors.IfcMissingRequiredParam` |
+| `130000005` | Interface | `bberrors.IfcInvalidFilterFormat` |
+| `130000006` | Interface | `bberrors.IfcUnauthorized` |
+| `130000007` | Interface | `bberrors.IfcForbidden` |
+| `140000001` | Infrastructure | `bberrors.InfraDBFailure` |
+| `140000002` | Infrastructure | `bberrors.InfraMessagingFailure` |
+| `140000003` | Infrastructure | `bberrors.InfraCacheFailure` |
+| `140000004` | Infrastructure | `bberrors.InfraExternalAPIFailure` |
+| `140000005` | Infrastructure | `bberrors.InfraServiceUnavailable` |
 
 ```go
-import "github.com/freakjazz/backbone-go/domain/exceptions"
+import bberrors "github.com/freakjazz/backbone-go/errors"
 
-err := exceptions.NewDomainException(11001001, "Name too short", nil)
+bberrors.DomainBusinessRuleViolation.Int()  // 110000001
+bberrors.AppResourceNotFound.Int()          // 120000004
+bberrors.IfcInvalidRequestBody.Int()        // 130000001
+bberrors.InfraDBFailure.Int()               // 140000001
 ```
 
 ---

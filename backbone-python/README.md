@@ -63,13 +63,31 @@ Raw object — no envelope.
 ### Error
 ```json
 {
-  "request_id":  "uuid",
-  "status_code": 404,
-  "message":     "Product not found",
-  "code_error":  "NOT_FOUND",
-  "field_errors": { "name": "required" }
+  "error_code":  130000001,
+  "message":     "name is required",
+  "rid":         "a8866c5e750643dab7cd2a8927bbcc08",
+  "status_code": 400
 }
 ```
+
+`field_errors` aparece solo en errores de validación con detalle por campo:
+```json
+{
+  "error_code":  130000001,
+  "message":     "invalid request body",
+  "rid":         "a8866c5e750643dab7cd2a8927bbcc08",
+  "status_code": 400,
+  "field_errors": { "name": "required", "price": "must be greater than 0" }
+}
+```
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `error_code` | int (9 dígitos) | Código estructurado por capa — siempre presente |
+| `message` | string | Mensaje legible |
+| `rid` | string | Request ID de traza (auto-generado si no viene del middleware) |
+| `status_code` | int | HTTP status code |
+| `field_errors` | object | Solo en errores de validación — omitido si no aplica |
 
 Usage:
 ```python
@@ -79,12 +97,17 @@ from backbone.interfaces.response_builders import (
     PaginatedResponseBuilder,
     ErrorResponseBuilder,
 )
+from backbone.errors import ErrorCodes
 
-ProcessResponseBuilder.created("uuid-123")          # {"id": "uuid-123"}
+ProcessResponseBuilder.created("uuid-123")           # {"id": "uuid-123"}
 SimpleObjectResponseBuilder.found(product.to_dict()) # raw object
 PaginatedResponseBuilder.success(items, 100, 1, 10, "OK")
-ErrorResponseBuilder.not_found_error("Product not found")
-ErrorResponseBuilder.validation_error("Invalid input", {"name": "required"})
+ErrorResponseBuilder.not_found("Product not found")
+ErrorResponseBuilder.validation_error(
+    "invalid request body",
+    error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY,
+    field_errors={"name": "required"},
+)
 ```
 
 ---
@@ -145,20 +168,51 @@ JSON output:
 
 ---
 
-## Exception system — 8-digit codes
+## Exception system — códigos de 9 dígitos
+
+Formato: `LL_NNNNNNN` donde `LL` = prefijo de capa, `NNNNNNN` = secuencia de 7 dígitos.
 
 ```
-10xxxxxx  Application     11xxxxxx  Domain
-12xxxxxx  Infrastructure  13xxxxxx  Interfaces
+11xxxxxxx  Domain          12xxxxxxx  Application
+13xxxxxxx  Interface       14xxxxxxx  Infrastructure
 ```
+
+| Código | Capa | Nombre |
+|---|---|---|
+| `110000001` | Domain | BusinessRuleViolation |
+| `110000002` | Domain | InvalidEntityState |
+| `110000003` | Domain | InvalidValueObject |
+| `110000004` | Domain | AggregateInconsistency |
+| `110000005` | Domain | InvalidFilter |
+| `120000001` | Application | UseCaseFailure |
+| `120000002` | Application | ValidationFailure |
+| `120000003` | Application | AuthorizationDenied |
+| `120000004` | Application | ResourceNotFound |
+| `120000005` | Application | ExternalServiceFailure |
+| `120000006` | Application | Conflict |
+| `130000001` | Interface | InvalidRequestBody |
+| `130000002` | Interface | MethodNotAllowed |
+| `130000003` | Interface | RouteNotFound |
+| `130000004` | Interface | MissingRequiredParam |
+| `130000005` | Interface | InvalidFilterFormat |
+| `130000006` | Interface | Unauthorized |
+| `130000007` | Interface | Forbidden |
+| `140000001` | Infrastructure | DBFailure |
+| `140000002` | Infrastructure | MessagingFailure |
+| `140000003` | Infrastructure | CacheFailure |
+| `140000004` | Infrastructure | ExternalAPIFailure |
+| `140000005` | Infrastructure | ServiceUnavailable |
 
 ```python
-from backbone.domain.exceptions import DomainException, BusinessRuleViolationException
-from backbone.application.exceptions import ValidationException, ResourceNotFoundException
+from backbone.errors import ErrorCodes
 
-raise DomainException(11001001, "Name must be at least 3 characters")
-raise ValidationException("Invalid price", field="price")
-raise ResourceNotFoundException("Product", resource_id="abc-123")
+ErrorCodes.DOMAIN_BUSINESS_RULE_VIOLATION  # 110000001
+ErrorCodes.APP_RESOURCE_NOT_FOUND          # 120000004
+ErrorCodes.IFC_INVALID_REQUEST_BODY        # 130000001
+ErrorCodes.INFRA_DB_FAILURE                # 140000001
+
+# Usar en el error builder
+ErrorResponseBuilder.validation_error("msg", error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY)
 ```
 
 ---
