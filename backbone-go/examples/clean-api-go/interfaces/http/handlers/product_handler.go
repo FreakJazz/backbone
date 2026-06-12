@@ -9,6 +9,7 @@ import (
 
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/application/usecases"
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/domain/entities"
+	"github.com/freakjazz/backbone-go/examples/clean-api-go/interfaces/http/middleware"
 	"github.com/freakjazz/backbone-go/infrastructure/logging"
 	"github.com/freakjazz/backbone-go/interfaces/responses"
 )
@@ -52,11 +53,12 @@ func NewProductHandler(
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	log := h.log("CreateProduct", r)
 	log.Info("Handling create product request", nil)
+	opts := errOpts(r)
 
 	var input usecases.CreateProductInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		log.ErrorWithCode("Invalid JSON payload", 13001001, map[string]interface{}{"error": err.Error()})
-		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		log.ErrorWithCode(msgInvalidJSON, 13001001, map[string]interface{}{"error": err.Error()})
+		resp := responses.ErrorResponseBuilder.ValidationError(msgInvalidJSON, opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -64,7 +66,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	output, err := h.createUseCase.Execute(r.Context(), input)
 	if err != nil {
 		log.ErrorWithCode("Create use case failed", 13001002, map[string]interface{}{"error": err.Error()})
-		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -86,7 +88,7 @@ func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
 	output, err := h.getListUseCase.Execute(r.Context(), input)
 	if err != nil {
 		log.ErrorWithCode("Get list use case failed", 13001003, map[string]interface{}{"error": err.Error()})
-		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		resp := responses.ErrorResponseBuilder.InternalServerError("", errOpts(r))
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -121,7 +123,7 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request, 
 
 	product, err := h.getByIDUseCase.Execute(r.Context(), id)
 	if err != nil {
-		resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, errOpts(r))
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -136,10 +138,11 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request, 
 func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request, id string) {
 	log := h.log("UpdateProduct", r)
 	log.Info("Handling update product request", map[string]interface{}{"product_id": id})
+	opts := errOpts(r)
 
 	var input usecases.UpdateProductInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(msgInvalidJSON, opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -147,12 +150,12 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request, i
 
 	product, err := h.updateUseCase.Execute(r.Context(), input)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		if strings.Contains(err.Error(), errNotFound) {
+			resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, opts)
 			h.sendJSON(w, resp.StatusCode, resp)
 			return
 		}
-		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -168,14 +171,15 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request, i
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request, id string) {
 	log := h.log("DeleteProduct", r)
 	log.Info("Handling delete product request", map[string]interface{}{"product_id": id})
+	opts := errOpts(r)
 
 	if err := h.deleteUseCase.Execute(r.Context(), id); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		if strings.Contains(err.Error(), errNotFound) {
+			resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, opts)
 			h.sendJSON(w, resp.StatusCode, resp)
 			return
 		}
-		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		resp := responses.ErrorResponseBuilder.InternalServerError("", opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -191,24 +195,25 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request, i
 func (h *ProductHandler) ChangeProductStatus(w http.ResponseWriter, r *http.Request, id string) {
 	log := h.log("ChangeProductStatus", r)
 	log.Info("Handling change product status", map[string]interface{}{"product_id": id})
+	opts := errOpts(r)
 
 	var body struct {
 		Active bool `json:"active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(msgInvalidJSON, opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
 
 	input := usecases.ChangeProductStatusInput{ID: id, Active: body.Active}
 	if err := h.changeStatusUseCase.Execute(r.Context(), input); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		if strings.Contains(err.Error(), errNotFound) {
+			resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, opts)
 			h.sendJSON(w, resp.StatusCode, resp)
 			return
 		}
-		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		resp := responses.ErrorResponseBuilder.InternalServerError("", opts)
 		h.sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -227,7 +232,7 @@ func (h *ProductHandler) log(method string, r *http.Request) *logging.EnhancedLo
 		WithHandler("ProductHandler").
 		WithMethod(method).
 		WithContext(map[string]interface{}{
-			"request_id": r.Context().Value("request_id"),
+			"request_id": middleware.RequestIDFromContext(r.Context()),
 			"method":     r.Method,
 			"path":       r.URL.Path,
 		})

@@ -8,6 +8,7 @@ import (
 
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/application/queries"
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/domain/entities"
+	"github.com/freakjazz/backbone-go/examples/clean-api-go/interfaces/http/middleware"
 	"github.com/freakjazz/backbone-go/infrastructure/logging"
 	"github.com/freakjazz/backbone-go/interfaces/responses"
 )
@@ -67,7 +68,7 @@ func (h *ProductQueryHandler) GetProducts(w http.ResponseWriter, r *http.Request
 
 	result, err := h.getListHandler.Handle(r.Context(), query)
 	if err != nil {
-		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error(), errOpts(r))
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -95,7 +96,7 @@ func (h *ProductQueryHandler) GetProductByID(w http.ResponseWriter, r *http.Requ
 
 	result, err := h.getByIDHandler.Handle(r.Context(), queries.GetProductByIDQuery{ID: id})
 	if err != nil {
-		resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		resp := responses.ErrorResponseBuilder.NotFound("Product not found", errOpts(r))
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -110,7 +111,7 @@ func (h *ProductQueryHandler) log(method string, r *http.Request) *logging.Enhan
 		WithHandler("ProductQueryHandler").
 		WithMethod(method).
 		WithContext(map[string]interface{}{
-			"request_id": r.Context().Value("request_id"),
+			"request_id": middleware.RequestIDFromContext(r.Context()),
 			"method":     r.Method,
 			"path":       r.URL.Path,
 		})
@@ -121,6 +122,13 @@ func sendJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
+}
+
+// errOpts builds ErrorOpts from the request context — passes the RID set by
+// LoggingMiddleware so every error response carries the same trace identifier
+// that appears in the logs.
+func errOpts(r *http.Request) responses.ErrorOpts {
+	return responses.ErrorOpts{RID: middleware.RequestIDFromContext(r.Context())}
 }
 
 // productMap converts a Product entity to a plain map for JSON serialization.

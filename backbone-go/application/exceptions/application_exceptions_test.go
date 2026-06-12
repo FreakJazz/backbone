@@ -13,7 +13,8 @@ func TestNewUseCaseException(t *testing.T) {
 
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "Failed to create product")
-	assert.Contains(t, err.Error(), "CreateProductCommandHandler")
+	// handler name is stored in Details, not in the error string
+	assert.Equal(t, "CreateProductCommandHandler", err.Details["use_case"])
 }
 
 func TestNewValidationException(t *testing.T) {
@@ -28,18 +29,20 @@ func TestNewValidationException(t *testing.T) {
 }
 
 func TestNewAuthorizationException(t *testing.T) {
-	err := exceptions.NewAuthorizationException("Access denied", "read:products")
+	err := exceptions.NewAuthorizationException("Access denied", "read:products", "user-1")
 
 	require.NotNil(t, err)
 	assert.Contains(t, err.Error(), "Access denied")
 }
 
 func TestNewResourceNotFoundException(t *testing.T) {
-	err := exceptions.NewResourceNotFoundException("Product", "uuid-123")
+	err := exceptions.NewResourceNotFoundException("Product not found", "Product", "uuid-123")
 
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "Product")
-	assert.Contains(t, err.Error(), "uuid-123")
+	assert.Contains(t, err.Error(), "Product not found")
+	// resource type and ID are in Details, not in the error string
+	assert.Equal(t, "Product", err.Details["resource_type"])
+	assert.Equal(t, "uuid-123", err.Details["resource_id"])
 }
 
 func TestApplicationExceptionCodes(t *testing.T) {
@@ -50,8 +53,8 @@ func TestApplicationExceptionCodes(t *testing.T) {
 	}{
 		{"UseCase",       func() error { return exceptions.NewUseCaseException("msg", "handler") }, [2]int{10000000, 10999999}},
 		{"Validation",    func() error { return exceptions.NewValidationException("msg", nil) },   [2]int{10000000, 10999999}},
-		{"Authorization", func() error { return exceptions.NewAuthorizationException("msg", "") }, [2]int{10000000, 10999999}},
-		{"NotFound",      func() error { return exceptions.NewResourceNotFoundException("T", "id") }, [2]int{10000000, 10999999}},
+		{"Authorization", func() error { return exceptions.NewAuthorizationException("msg", "perm", "uid") }, [2]int{10000000, 10999999}},
+		{"NotFound",      func() error { return exceptions.NewResourceNotFoundException("msg", "T", "id") }, [2]int{10000000, 10999999}},
 	}
 
 	for _, tc := range tests {

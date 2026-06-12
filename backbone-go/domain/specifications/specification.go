@@ -3,6 +3,7 @@ package specifications
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -36,9 +37,27 @@ func (s *BaseSpecification) ToSQL() (string, []interface{}) {
 	return fmt.Sprintf("%s %s ?", s.field, s.operator), []interface{}{s.value}
 }
 
-// IsSatisfiedBy is a basic implementation (override for complex logic)
+// IsSatisfiedBy evaluates the specification against an entity using its operator.
+// Handles = != > >= < <= via the entity_matcher helpers (same package).
 func (s *BaseSpecification) IsSatisfiedBy(entity interface{}) bool {
-	// This should be implemented based on entity type
+	val, ok := fieldValue(entity, s.field)
+	if !ok {
+		return false
+	}
+	switch s.operator {
+	case "=":
+		return reflect.DeepEqual(val, s.value)
+	case "!=":
+		return !reflect.DeepEqual(val, s.value)
+	case ">":
+		return compare(val, s.value) > 0
+	case ">=":
+		return compare(val, s.value) >= 0
+	case "<":
+		return compare(val, s.value) < 0
+	case "<=":
+		return compare(val, s.value) <= 0
+	}
 	return true
 }
 
@@ -177,11 +196,6 @@ func (s *InSpecification) ToSQL() (string, []interface{}) {
 	return sql, s.values
 }
 
-// IsSatisfiedBy checks if entity satisfies the specification
-func (s *InSpecification) IsSatisfiedBy(entity interface{}) bool {
-	return true // Implement based on entity type
-}
-
 // And combines specifications
 func (s *InSpecification) And(other Specification) Specification {
 	return &AndSpecification{left: s, right: other}
@@ -214,11 +228,6 @@ func NewLikeSpecification(field, pattern string) *LikeSpecification {
 // ToSQL converts to SQL
 func (s *LikeSpecification) ToSQL() (string, []interface{}) {
 	return fmt.Sprintf("%s LIKE ?", s.field), []interface{}{s.pattern}
-}
-
-// IsSatisfiedBy checks if entity satisfies the specification
-func (s *LikeSpecification) IsSatisfiedBy(entity interface{}) bool {
-	return true
 }
 
 // And combines specifications
@@ -257,11 +266,6 @@ func (s *BetweenSpecification) ToSQL() (string, []interface{}) {
 	return fmt.Sprintf("%s BETWEEN ? AND ?", s.field), []interface{}{s.min, s.max}
 }
 
-// IsSatisfiedBy checks if entity satisfies the specification
-func (s *BetweenSpecification) IsSatisfiedBy(entity interface{}) bool {
-	return true
-}
-
 // And combines specifications
 func (s *BetweenSpecification) And(other Specification) Specification {
 	return &AndSpecification{left: s, right: other}
@@ -290,11 +294,6 @@ func NewIsNullSpecification(field string) *IsNullSpecification {
 // ToSQL converts to SQL
 func (s *IsNullSpecification) ToSQL() (string, []interface{}) {
 	return fmt.Sprintf("%s IS NULL", s.field), []interface{}{}
-}
-
-// IsSatisfiedBy checks if entity satisfies the specification
-func (s *IsNullSpecification) IsSatisfiedBy(entity interface{}) bool {
-	return true
 }
 
 // And combines specifications

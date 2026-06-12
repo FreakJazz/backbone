@@ -4,6 +4,9 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +15,8 @@ import (
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/domain/repositories"
 	"github.com/freakjazz/backbone-go/infrastructure/logging"
 )
+
+const errProductNotFound = "product not found"
 
 // MemoryProductRepository implements ProductRepository using in-memory storage
 type MemoryProductRepository struct {
@@ -80,7 +85,7 @@ func (r *MemoryProductRepository) FindByID(ctx context.Context, id string) (*ent
 			"product_id":  id,
 			"duration_ms": duration,
 		})
-		return nil, fmt.Errorf("product not found")
+		return nil, fmt.Errorf(errProductNotFound)
 	}
 
 	repoLogger.Debug("Product found", map[string]interface{}{
@@ -144,8 +149,18 @@ func (r *MemoryProductRepository) FindByCriteria(ctx context.Context, criteria *
 		}
 	}
 
-	// Aplicar ordenamiento (simplificado)
-	// En una DB real, esto lo haría la query
+	// Aplicar ordenamiento por cada sort criteria
+	for i := len(criteria.Sorts) - 1; i >= 0; i-- {
+		s := criteria.Sorts[i]
+		sort.SliceStable(results, func(a, b int) bool {
+			av := r.fieldFloat(results[a], s.Field)
+			bv := r.fieldFloat(results[b], s.Field)
+			if s.Direction == specifications.SortDescending {
+				return av > bv
+			}
+			return av < bv
+		})
+	}
 
 	// Aplicar paginación
 	results = r.applyPagination(results, criteria)
@@ -209,7 +224,7 @@ func (r *MemoryProductRepository) Update(ctx context.Context, product *entities.
 			"product_id":  product.ID,
 			"duration_ms": duration,
 		})
-		return fmt.Errorf("product not found")
+		return fmt.Errorf(errProductNotFound)
 	}
 
 	product.UpdatedAt = time.Now()
@@ -242,7 +257,7 @@ func (r *MemoryProductRepository) Delete(ctx context.Context, id string) error {
 			"product_id":  id,
 			"duration_ms": duration,
 		})
-		return fmt.Errorf("product not found")
+		return fmt.Errorf(errProductNotFound)
 	}
 
 	delete(r.products, id)
@@ -265,18 +280,30 @@ func (r *MemoryProductRepository) ExistsByID(ctx context.Context, id string) (bo
 	return exists, nil
 }
 
-// matchesCriteria checks if a product matches the criteria (simplified)
-func (r *MemoryProductRepository) matchesCriteria(product *entities.Product, criteria *specifications.Criteria) bool {
-	// Nota: Esta es una implementación simplificada para demostración
-	// En una DB real, esto se haría con SQL generado por Specification Pattern
-
-	if criteria.Specification != nil {
-		// Aplicar specification manualmente (simplificado)
-		// En realidad usarías IsSatisfiedBy de cada especificación
-		return true // Para demo, aceptamos todos
+// fieldFloat returns the numeric value of a product field for sorting.
+// Falls back to 0 for non-numeric fields (use fieldStr for string sorting).
+func (r *MemoryProductRepository) fieldFloat(p *entities.Product, field string) float64 {
+	v := reflect.ValueOf(p).Elem().FieldByNameFunc(func(name string) bool {
+		return strings.EqualFold(name, field)
+	})
+	if !v.IsValid() {
+		return 0
 	}
+	switch v.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return v.Float()
+	case reflect.Int, reflect.Int32, reflect.Int64:
+		return float64(v.Int())
+	}
+	return 0
+}
 
-	return true
+// matchesCriteria evaluates a product against the specification using IsSatisfiedBy.
+func (r *MemoryProductRepository) matchesCriteria(product *entities.Product, criteria *specifications.Criteria) bool {
+	if criteria.Specification == nil {
+		return true
+	}
+	return criteria.Specification.IsSatisfiedBy(product)
 }
 
 // applyPagination applies pagination to results

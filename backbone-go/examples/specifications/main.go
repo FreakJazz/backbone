@@ -12,7 +12,8 @@ import (
 
 func main() {
 	fmt.Println("🔍 Specification Pattern & Enhanced Logging Example")
-	fmt.Println("====================================================\n")
+	fmt.Println("====================================================")
+	fmt.Println()
 
 	// Setup enhanced logger
 	logger := logging.NewEnhancedLogger("specification-example")

@@ -272,110 +272,124 @@ class TestPaginatedResponseBuilder(BaseTestCase):
 
 
 class TestErrorResponseBuilder(BaseTestCase):
-    """Test error response builder for error responses"""
-    
+    """Test error response builder — contrato alineado con backbone-go."""
+
     def test_validation_error_response(self):
-        """Test: Validation error response with field errors"""
-        # Arrange
-        field_errors = {
-            "email": "Invalid email format",
-            "age": "Must be at least 18"
-        }
-        
-        # Act
+        """Test: Validation error — 400 con field_errors y código de catálogo."""
+        field_errors = {"email": "Invalid email format", "age": "Must be at least 18"}
         response = ErrorResponseBuilder.validation_error(
             message="Validation failed",
-            field_errors=field_errors
+            field_errors=field_errors,
         )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
         self.assertEqual(response["status_code"], 400)
         self.assertEqual(response["message"], "Validation failed")
-        self.assertEqual(response["error_details"]["field_errors"], field_errors)
-    
+        self.assertEqual(response["field_errors"], field_errors)
+        self.assertEqual(response["error_code"], 130000001)  # IFC_INVALID_REQUEST_BODY
+        self.assertIn("rid", response)
+        self.assertNotIn("code_error", response)
+        self.assertNotIn("request_id", response)
+
+    def test_validation_error_custom_code(self):
+        """Test: El caller puede sobreescribir el código por defecto."""
+        response = ErrorResponseBuilder.validation_error(
+            message="Filtro inválido",
+            error_code=110000005,  # DOMAIN_INVALID_FILTER
+        )
+        self.assertEqual(response["error_code"], 110000005)
+
     def test_authentication_error_response(self):
-        """Test: Authentication error response"""
-        # Act
-        response = ErrorResponseBuilder.authentication_error(
-            message="Authentication required"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
+        """Test: Authentication error — 401 con código de catálogo."""
+        response = ErrorResponseBuilder.authentication_error(message="Authentication required")
         self.assertEqual(response["status_code"], 401)
-        self.assertEqual(response["message"], "Authentication required")
-        self.assertIn("request_id", response)
-    
+        self.assertEqual(response["error_code"], 130000006)  # IFC_UNAUTHORIZED
+        self.assertIn("rid", response)
+
     def test_authorization_error_response(self):
-        """Test: Authorization error response"""
-        # Act
-        response = ErrorResponseBuilder.authorization_error(
-            message="Access denied",
-            required_permission="user:write"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
+        """Test: Authorization error — 403 con código de catálogo."""
+        response = ErrorResponseBuilder.authorization_error(message="Access denied")
         self.assertEqual(response["status_code"], 403)
-        self.assertEqual(response["message"], "Access denied")
-        self.assertEqual(response["error_details"]["required_permission"], "user:write")
-    
+        self.assertEqual(response["error_code"], 130000007)  # IFC_FORBIDDEN
+
     def test_not_found_error_response(self):
-        """Test: Not found error response"""
-        # Act
-        response = ErrorResponseBuilder.not_found_error(
-            message="User not found",
-            resource_type="user",
-            resource_id="999"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
+        """Test: Not found error — 404 con código de catálogo."""
+        response = ErrorResponseBuilder.not_found_error(message="User not found")
         self.assertEqual(response["status_code"], 404)
-        self.assertEqual(response["message"], "User not found")
-        self.assertEqual(response["error_details"]["resource_type"], "user")
-        self.assertEqual(response["error_details"]["resource_id"], "999")
-    
+        self.assertEqual(response["error_code"], 120000004)  # APP_RESOURCE_NOT_FOUND
+
     def test_conflict_error_response(self):
-        """Test: Conflict error response"""
-        # Act
-        response = ErrorResponseBuilder.conflict_error(
-            message="Email already exists",
-            resource_type="user",
-            conflict_field="email"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
+        """Test: Conflict error — 409 con código de catálogo."""
+        response = ErrorResponseBuilder.conflict_error(message="Email already exists")
         self.assertEqual(response["status_code"], 409)
-        self.assertEqual(response["message"], "Email already exists")
-        self.assertEqual(response["error_details"]["resource_type"], "user")
-        self.assertEqual(response["error_details"]["conflict_field"], "email")
-    
+        self.assertEqual(response["error_code"], 120000006)  # APP_CONFLICT
+
     def test_internal_server_error_response(self):
-        """Test: Internal server error response"""
-        # Act
-        response = ErrorResponseBuilder.internal_server_error(
-            message="An unexpected error occurred"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
+        """Test: Internal server error — 500 con código de catálogo, sin detalles."""
+        response = ErrorResponseBuilder.internal_server_error(message="An unexpected error occurred")
+        self.assertEqual(response["status_code"], 500)
+        self.assertEqual(response["error_code"], 140000001)  # INFRA_DB_FAILURE
+        self.assertNotIn("code_error", response)
+
+    def test_internal_server_error_default_message(self):
+        """Test: Sin mensaje → usa el mensaje genérico seguro."""
+        response = ErrorResponseBuilder.internal_server_error()
         self.assertEqual(response["status_code"], 500)
         self.assertEqual(response["message"], "An unexpected error occurred")
-    
+        self.assertEqual(response["error_code"], 140000001)
+
     def test_service_unavailable_error_response(self):
-        """Test: Service unavailable error response"""
-        # Act
-        response = ErrorResponseBuilder.service_unavailable_error(
-            message="Database service unavailable"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "error")
+        """Test: Service unavailable — 503 con código de catálogo."""
+        response = ErrorResponseBuilder.service_unavailable_error(message="Database service unavailable")
         self.assertEqual(response["status_code"], 503)
-        self.assertEqual(response["message"], "Database service unavailable")
+        self.assertEqual(response["error_code"], 140000005)  # INFRA_SERVICE_UNAVAILABLE
+
+    def test_error_code_always_present(self):
+        """Test: error_code SIEMPRE presente en todos los métodos."""
+        methods = [
+            lambda: ErrorResponseBuilder.validation_error("v"),
+            lambda: ErrorResponseBuilder.authentication_error("a"),
+            lambda: ErrorResponseBuilder.authorization_error("f"),
+            lambda: ErrorResponseBuilder.not_found_error("n"),
+            lambda: ErrorResponseBuilder.conflict_error("c"),
+            lambda: ErrorResponseBuilder.internal_server_error("i"),
+            lambda: ErrorResponseBuilder.service_unavailable_error("s"),
+        ]
+        for fn in methods:
+            response = fn()
+            self.assertIn("error_code", response)
+            self.assertNotEqual(response["error_code"], 0)
+
+    def test_rid_auto_generated_when_not_supplied(self):
+        """Test: RID se genera automáticamente y es único por llamada."""
+        r1 = ErrorResponseBuilder.not_found_error("x")
+        r2 = ErrorResponseBuilder.not_found_error("x")
+        self.assertIn("rid", r1)
+        self.assertNotEqual(r1["rid"], r2["rid"])
+
+    def test_rid_preserved_when_supplied(self):
+        """Test: RID pasado explícitamente se conserva."""
+        rid = "my-trace-id-abc"
+        response = ErrorResponseBuilder.not_found_error("x", rid=rid)
+        self.assertEqual(response["rid"], rid)
+
+    def test_from_exception_kernel(self):
+        """Test: from_exception usa rid, http_code y code del BaseKernelException."""
+        from backbone.domain.exceptions.base_kernel_exception import BaseKernelException
+
+        exc = BaseKernelException(code=11003007, message="Filtro inválido", http_code=400)
+        response = ErrorResponseBuilder.from_exception(exc)
+
+        self.assertEqual(response["status_code"], 400)
+        self.assertEqual(response["message"], "Filtro inválido")
+        self.assertEqual(response["error_code"], 11003007)
+        self.assertEqual(response["rid"], exc.rid)
+
+    def test_from_exception_generic(self):
+        """Test: Excepción genérica → 500 seguro, sin exponer detalles internos."""
+        response = ErrorResponseBuilder.from_exception(ValueError("internal detail"))
+        self.assertEqual(response["status_code"], 500)
+        self.assertEqual(response["message"], "An unexpected error occurred")
+        self.assertNotIn("internal detail", response["message"])
+        self.assertEqual(response["error_code"], 140000001)
 
 
 # === PRESENTATION EXCEPTION TESTS ===
@@ -453,49 +467,26 @@ class TestPresentationExceptions(BaseTestCase):
 class TestResponseBuilderIntegration(BaseTestCase):
     """Integration tests for response builders working together"""
     
-    def test_consistent_response_format_across_builders(self):
-        """Test: All builders produce consistent base format"""
-        # Arrange & Act
-        success_response = ProcessResponseBuilder.success(
-            data={"test": "data"}, 
-            message="Success"
-        )
-        
-        error_response = ErrorResponseBuilder.validation_error(
-            message="Validation failed"
-        )
-        
-        paginated_response = PaginatedResponseBuilder.success(
-            items=[{"id": "1"}],
-            total_count=1,
-            page=0,
-            page_size=10,
-            message="Items found"
-        )
-        
-        # Assert - All responses have consistent base fields
-        for response in [success_response, error_response, paginated_response]:
-            self.assertIn("status", response)
-            self.assertIn("status_code", response)
-            self.assertIn("message", response)
-            self.assertIn("timestamp", response)
-            self.assertIn("request_id", response)
-    
-    def test_response_builders_with_context(self):
-        """Test: Response builders work with contextual information"""
-        # Arrange - Simulate request context
-        request_id = "test-req-123"
-        
-        # Act
-        response = SimpleObjectResponseBuilder.success(
-            data={"id": "123", "name": "Test"},
-            message="Entity retrieved",
-            request_id=request_id
-        )
-        
-        # Assert
-        self.assertEqual(response["request_id"], request_id)
-        self.assertIn("timestamp", response)
+    def test_consistent_error_fields(self):
+        """Test: ErrorResponseBuilder siempre incluye rid, status_code y message."""
+        for build_fn, kwargs in [
+            (ErrorResponseBuilder.validation_error,       {"message": "v"}),
+            (ErrorResponseBuilder.authentication_error,   {"message": "a"}),
+            (ErrorResponseBuilder.not_found_error,        {"message": "n"}),
+            (ErrorResponseBuilder.internal_server_error,  {"message": "i"}),
+        ]:
+            response = build_fn(**kwargs)
+            self.assertIn("rid",         response, f"{build_fn.__name__} debe tener rid")
+            self.assertIn("status_code", response, f"{build_fn.__name__} debe tener status_code")
+            self.assertIn("message",     response, f"{build_fn.__name__} debe tener message")
+            self.assertNotIn("code_error",  response, f"{build_fn.__name__} no debe tener code_error")
+            self.assertNotIn("request_id",  response, f"{build_fn.__name__} no debe tener request_id")
+
+    def test_response_builders_with_rid(self):
+        """Test: ErrorResponseBuilder acepta rid externo para trazabilidad."""
+        rid = "test-req-123"
+        response = ErrorResponseBuilder.not_found_error(message="Not found", rid=rid)
+        self.assertEqual(response["rid"], rid)
 
 
 # === RUN TESTS ===

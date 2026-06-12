@@ -64,22 +64,21 @@ class BaseKernelException(Exception):
     
     def to_error_contract(self) -> Dict[str, Any]:
         """
-        Convierte a formato de contrato de error estándar.
-        
-        SOLO campos públicos para el cliente:
-        {
-            "rid": "string",
-            "code": 10001001,
-            "message": "string"
-        }
-        
-        Returns:
-            Dict con el contrato de error mínimo
+        Convierte a contrato de error estándar (alineado con backbone-go).
+
+        Campos públicos para el cliente:
+            {
+                "rid":         "string",     # Request ID para trazabilidad
+                "status_code": 400,          # HTTP status code
+                "message":     "string",     # Mensaje limpio para el usuario
+                "error_code":  11003007      # Código numérico estructurado
+            }
         """
         return {
             "rid": self.rid,
-            "code": self.code,
-            "message": self.message
+            "status_code": self.http_code,
+            "message": self.message,
+            "error_code": self.code,
         }
     
     def to_log_format(self) -> Dict[str, Any]:

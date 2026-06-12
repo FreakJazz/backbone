@@ -79,9 +79,14 @@ func ParseSortBy(sortBy string) (string, string) {
 }
 
 // parseOneFilter parses a single "field,operator,value[,condition]" string.
+// is_null and is_not_null operators do not require a value: "field,is_null" is valid.
 func parseOneFilter(s string) *FilterParam {
 	parts := strings.SplitN(s, ",", 4)
-	if len(parts) < 3 {
+	if len(parts) < 2 {
+		return nil
+	}
+	op := strings.ToLower(strings.TrimSpace(parts[1]))
+	if op != "is_null" && op != "is_not_null" && len(parts) < 3 {
 		return nil
 	}
 
@@ -98,7 +103,10 @@ func parseOneFilter(s string) *FilterParam {
 		}
 	}
 
-	rawValue := strings.TrimSpace(parts[2])
+	rawValue := ""
+	if len(parts) > 2 {
+		rawValue = strings.TrimSpace(parts[2])
+	}
 
 	switch fp.Operator {
 	case "in":

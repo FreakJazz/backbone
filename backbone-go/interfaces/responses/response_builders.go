@@ -3,6 +3,7 @@
 package responses
 
 import (
+	bberrors "github.com/freakjazz/backbone-go/errors"
 	"github.com/google/uuid"
 )
 
@@ -119,81 +120,142 @@ func (b *paginatedResponseBuilder) Empty(message string) PaginatedResponse {
 
 // ---------------------------------------------------------------------------
 // ErrorResponseBuilder  — errors
-// Returns:
+//
+// error_code es SIEMPRE obligatorio en la respuesta.
+// Cada método tiene un código por defecto del catálogo backbone (errors/codes.go).
+// El caller puede sobreescribirlo pasando ErrorOpts{Code: miCodigo}.
+//
+// Catálogo de capas:
+//
+//	11 = Domain        → 110000001, 110000002, ...
+//	12 = Application   → 120000001, 120000002, ...
+//	13 = Interface     → 130000001, 130000002, ...
+//	14 = Infrastructure→ 140000001, 140000002, ...
+//
+// Uso:
+//
+//	// Mínimo — código por defecto del catálogo, RID auto-generado
+//	ErrorResponseBuilder.NotFound("not found")
+//
+//	// Con RID del contexto HTTP
+//	ErrorResponseBuilder.NotFound("not found", ErrorOpts{RID: rid})
+//
+//	// Con código propio del sistema (sobreescribe el default)
+//	ErrorResponseBuilder.ValidationError("name is required", ErrorOpts{
+//	    RID:  rid,
+//	    Code: 130000004, // catálogo propio de la API
+//	})
+//
+// Respuesta:
 //
 //	{
-//	  "request_id":   "uuid",
+//	  "rid":          "uuid",
 //	  "status_code":  400,
 //	  "message":      "...",
-//	  "code_error":   "VALIDATION_ERROR",
-//	  "field_errors": {...}  // optional, validation only
+//	  "error_code":   130000001,    ← siempre presente
+//	  "field_errors": {...}          ← omitido si nil
 //	}
 // ---------------------------------------------------------------------------
 
-// ErrorResponse is the standard error body.
+// ErrorOpts permite sobreescribir los valores por defecto de una respuesta de error.
+type ErrorOpts struct {
+	// RID es el identificador de traza HTTP (del middleware).
+	// Si está vacío se genera un UUID automáticamente.
+	RID string
+
+	// Code sobreescribe el código de error por defecto del método.
+	// 0 = usar el default del catálogo backbone.
+	Code int
+
+	// FieldErrors lleva mensajes de validación por campo.
+	FieldErrors map[string]string
+}
+
+// ErrorResponse es el cuerpo estándar de error.
 type ErrorResponse struct {
-	RequestID   string            `json:"request_id"`
+	RID         string            `json:"rid"`
 	StatusCode  int               `json:"status_code"`
 	Message     string            `json:"message"`
-	CodeError   string            `json:"code_error"`
+	ErrorCode   int               `json:"error_code"`
 	FieldErrors map[string]string `json:"field_errors,omitempty"`
 }
 
 type errorResponseBuilder struct{}
 
-// ErrorResponseBuilder is the singleton instance.
+// ErrorResponseBuilder es la instancia singleton.
 var ErrorResponseBuilder = &errorResponseBuilder{}
 
-func (b *errorResponseBuilder) build(statusCode int, message, codeError string) ErrorResponse {
+// build construye la respuesta. defaultCode se usa si opts no trae un código propio.
+func (b *errorResponseBuilder) build(statusCode int, message string, defaultCode int, opts []ErrorOpts) ErrorResponse {
+	var o ErrorOpts
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	rid := o.RID
+	if rid == "" {
+		rid = uuid.New().String()
+	}
+	code := o.Code
+	if code == 0 {
+		code = defaultCode
+	}
 	return ErrorResponse{
-		RequestID:  uuid.New().String(),
-		StatusCode: statusCode,
-		Message:    message,
-		CodeError:  codeError,
+		RID:         rid,
+		StatusCode:  statusCode,
+		Message:     message,
+		ErrorCode:   code,
+		FieldErrors: o.FieldErrors,
 	}
 }
 
-// FromException creates an error response from any error value.
-func (b *errorResponseBuilder) FromException(err error) ErrorResponse {
-	return b.build(500, err.Error(), "INTERNAL_SERVER_ERROR")
+// FromException construye un error 500 a partir de cualquier error.
+// En producción pasa un mensaje genérico para no exponer detalles internos.
+func (b *errorResponseBuilder) FromException(err error, opts ...ErrorOpts) ErrorResponse {
+	return b.build(500, err.Error(), bberrors.InfraDBFailure.Int(), opts)
 }
 
-// ValidationError creates a 400 validation error, optionally with field errors.
-func (b *errorResponseBuilder) ValidationError(message string, fieldErrors map[string]string) ErrorResponse {
-	r := b.build(400, message, "VALIDATION_ERROR")
-	r.FieldErrors = fieldErrors
-	return r
+// ValidationError crea un error 400.
+// Default: 130000001 (Interface — invalid request body).
+func (b *errorResponseBuilder) ValidationError(message string, opts ...ErrorOpts) ErrorResponse {
+	return b.build(400, message, bberrors.IfcInvalidRequestBody.Int(), opts)
 }
 
-// NotFound creates a 404 error.
-func (b *errorResponseBuilder) NotFound(message string) ErrorResponse {
-	return b.build(404, message, "NOT_FOUND")
+// NotFound crea un error 404.
+// Default: 120000004 (Application — resource not found).
+func (b *errorResponseBuilder) NotFound(message string, opts ...ErrorOpts) ErrorResponse {
+	return b.build(404, message, bberrors.AppResourceNotFound.Int(), opts)
 }
 
-// Unauthorized creates a 401 error.
-func (b *errorResponseBuilder) Unauthorized(message string) ErrorResponse {
-	return b.build(401, message, "AUTHENTICATION_ERROR")
+// Unauthorized crea un error 401.
+// Default: 130000006 (Interface — unauthorized).
+func (b *errorResponseBuilder) Unauthorized(message string, opts ...ErrorOpts) ErrorResponse {
+	return b.build(401, message, bberrors.IfcUnauthorized.Int(), opts)
 }
 
-// Forbidden creates a 403 error.
-func (b *errorResponseBuilder) Forbidden(message string) ErrorResponse {
-	return b.build(403, message, "AUTHORIZATION_ERROR")
+// Forbidden crea un error 403.
+// Default: 130000007 (Interface — forbidden).
+func (b *errorResponseBuilder) Forbidden(message string, opts ...ErrorOpts) ErrorResponse {
+	return b.build(403, message, bberrors.IfcForbidden.Int(), opts)
 }
 
-// Conflict creates a 409 error.
-func (b *errorResponseBuilder) Conflict(message string) ErrorResponse {
-	return b.build(409, message, "CONFLICT")
+// Conflict crea un error 409.
+// Default: 120000006 (Application — conflict).
+func (b *errorResponseBuilder) Conflict(message string, opts ...ErrorOpts) ErrorResponse {
+	return b.build(409, message, bberrors.AppConflict.Int(), opts)
 }
 
-// InternalServerError creates a 500 error.
-func (b *errorResponseBuilder) InternalServerError(message string) ErrorResponse {
+// InternalServerError crea un error 500.
+// En sistemas bancarios usa siempre el mensaje genérico para no exponer internos.
+// Default: 140000001 (Infrastructure — DB failure).
+func (b *errorResponseBuilder) InternalServerError(message string, opts ...ErrorOpts) ErrorResponse {
 	if message == "" {
 		message = "An unexpected error occurred"
 	}
-	return b.build(500, message, "INTERNAL_SERVER_ERROR")
+	return b.build(500, message, bberrors.InfraDBFailure.Int(), opts)
 }
 
-// ServiceUnavailable creates a 503 error.
-func (b *errorResponseBuilder) ServiceUnavailable(message string) ErrorResponse {
-	return b.build(503, message, "SERVICE_UNAVAILABLE")
+// ServiceUnavailable crea un error 503.
+// Default: 140000005 (Infrastructure — service unavailable).
+func (b *errorResponseBuilder) ServiceUnavailable(message string, opts ...ErrorOpts) ErrorResponse {
+	return b.build(503, message, bberrors.InfraServiceUnavailable.Int(), opts)
 }

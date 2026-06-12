@@ -10,20 +10,34 @@ import (
 	"github.com/google/uuid"
 )
 
-// LoggingMiddleware logs HTTP requests and responses
+// ctxKey is an unexported type for context keys in this package.
+// Using a private type prevents collisions with keys from other packages
+// that happen to use the same string — a common source of subtle bugs.
+type ctxKey uint8
+
+const ctxRequestID ctxKey = 0
+
+// RequestIDFromContext returns the request trace ID set by LoggingMiddleware.
+// Returns an empty string if no ID is present (e.g. in unit tests).
+func RequestIDFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(ctxRequestID).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// LoggingMiddleware logs HTTP requests and responses.
+// It also generates a UUID request trace ID and stores it in the context
+// so all downstream handlers and use-cases can attach it to logs and error responses.
 func LoggingMiddleware(logger *logging.EnhancedLogger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			// Generate request ID
 			requestID := uuid.New().String()
-
-			// Add request ID to context
-			ctx := context.WithValue(r.Context(), "request_id", requestID)
+			ctx := context.WithValue(r.Context(), ctxRequestID, requestID)
 			r = r.WithContext(ctx)
 
-			// Logger con contexto de request
 			reqLogger := logger.
 				WithLayer("interfaces").
 				WithComponent("HTTPMiddleware").
@@ -32,7 +46,6 @@ func LoggingMiddleware(logger *logging.EnhancedLogger) func(http.Handler) http.H
 					"request_id": requestID,
 				})
 
-			// Log request
 			reqLogger.Info("Incoming HTTP request", map[string]interface{}{
 				"method":     r.Method,
 				"path":       r.URL.Path,
@@ -41,33 +54,24 @@ func LoggingMiddleware(logger *logging.EnhancedLogger) func(http.Handler) http.H
 				"user_agent": r.UserAgent(),
 			})
 
-			// Create custom response writer to capture status code
 			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-			// Call next handler
 			next.ServeHTTP(rw, r)
 
-			// Calculate duration
-			duration := time.Since(start).Milliseconds()
-
-			// Log response
 			reqLogger.Info("HTTP request completed", map[string]interface{}{
 				"method":      r.Method,
 				"path":        r.URL.Path,
 				"status_code": rw.statusCode,
-				"duration_ms": duration,
+				"duration_ms": time.Since(start).Milliseconds(),
 			})
 		})
 	}
 }
 
-// responseWriter wraps http.ResponseWriter to capture status code
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
 
-// WriteHeader captures the status code
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)

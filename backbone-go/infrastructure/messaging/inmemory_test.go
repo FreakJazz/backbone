@@ -22,7 +22,7 @@ func newEvent(name string) *ports.BaseEvent {
 }
 
 func TestInMemoryEventBus_PublishAndSubscribe(t *testing.T) {
-	logger := logging.NewEnhancedLogger("test")
+	logger := logging.NewLogger("test")
 	bus := messaging.NewInMemoryEventBus(logger)
 	defer bus.Close()
 
@@ -47,7 +47,7 @@ func TestInMemoryEventBus_PublishAndSubscribe(t *testing.T) {
 }
 
 func TestInMemoryEventBus_MultipleSubscribers(t *testing.T) {
-	logger := logging.NewEnhancedLogger("test")
+	logger := logging.NewLogger("test")
 	bus := messaging.NewInMemoryEventBus(logger)
 	defer bus.Close()
 
@@ -73,7 +73,7 @@ func TestInMemoryEventBus_MultipleSubscribers(t *testing.T) {
 }
 
 func TestInMemoryEventBus_UnrelatedEventNotDelivered(t *testing.T) {
-	logger := logging.NewEnhancedLogger("test")
+	logger := logging.NewLogger("test")
 	bus := messaging.NewInMemoryEventBus(logger)
 	defer bus.Close()
 
@@ -92,7 +92,7 @@ func TestInMemoryEventBus_UnrelatedEventNotDelivered(t *testing.T) {
 }
 
 func TestInMemoryEventBus_Unsubscribe(t *testing.T) {
-	logger := logging.NewEnhancedLogger("test")
+	logger := logging.NewLogger("test")
 	bus := messaging.NewInMemoryEventBus(logger)
 	defer bus.Close()
 
@@ -115,7 +115,7 @@ func TestInMemoryEventBus_Unsubscribe(t *testing.T) {
 }
 
 func TestInMemoryEventBus_HandlerCount(t *testing.T) {
-	logger := logging.NewEnhancedLogger("test")
+	logger := logging.NewLogger("test")
 	bus := messaging.NewInMemoryEventBus(logger)
 	defer bus.Close()
 

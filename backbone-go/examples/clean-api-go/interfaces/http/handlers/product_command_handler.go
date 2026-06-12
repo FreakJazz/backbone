@@ -7,8 +7,15 @@ import (
 	"strings"
 
 	"github.com/freakjazz/backbone-go/examples/clean-api-go/application/commands"
+	"github.com/freakjazz/backbone-go/examples/clean-api-go/interfaces/http/middleware"
 	"github.com/freakjazz/backbone-go/infrastructure/logging"
 	"github.com/freakjazz/backbone-go/interfaces/responses"
+)
+
+const (
+	msgInvalidJSON   = "Invalid JSON payload"
+	msgProductNotFound = "Product not found"
+	errNotFound      = "not found"
 )
 
 // ProductCommandHandler is the thin HTTP adapter for write operations.
@@ -43,17 +50,18 @@ func NewProductCommandHandler(
 func (h *ProductCommandHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	log := h.log("CreateProduct", r)
 	log.Info("Handling CreateProduct command", nil)
+	opts := errOpts(r)
 
 	var cmd commands.CreateProductCommand
 	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
-		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(msgInvalidJSON, opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
 
 	result, err := h.createHandler.Handle(r.Context(), cmd)
 	if err != nil {
-		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -66,6 +74,7 @@ func (h *ProductCommandHandler) CreateProduct(w http.ResponseWriter, r *http.Req
 func (h *ProductCommandHandler) UpdateProduct(w http.ResponseWriter, r *http.Request, id string) {
 	log := h.log("UpdateProduct", r)
 	log.Info("Handling UpdateProduct command", map[string]interface{}{"product_id": id})
+	opts := errOpts(r)
 
 	var body struct {
 		Name        string  `json:"name"`
@@ -75,7 +84,7 @@ func (h *ProductCommandHandler) UpdateProduct(w http.ResponseWriter, r *http.Req
 		Stock       int     `json:"stock"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(msgInvalidJSON, opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -91,12 +100,12 @@ func (h *ProductCommandHandler) UpdateProduct(w http.ResponseWriter, r *http.Req
 
 	result, err := h.updateHandler.Handle(r.Context(), cmd)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		if strings.Contains(err.Error(), errNotFound) {
+			resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, opts)
 			sendJSON(w, resp.StatusCode, resp)
 			return
 		}
-		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(err.Error(), opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -109,15 +118,16 @@ func (h *ProductCommandHandler) UpdateProduct(w http.ResponseWriter, r *http.Req
 func (h *ProductCommandHandler) DeleteProduct(w http.ResponseWriter, r *http.Request, id string) {
 	log := h.log("DeleteProduct", r)
 	log.Info("Handling DeleteProduct command", map[string]interface{}{"product_id": id})
+	opts := errOpts(r)
 
 	cmd := commands.DeleteProductCommand{ID: id}
 	if err := h.deleteHandler.Handle(r.Context(), cmd); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		if strings.Contains(err.Error(), errNotFound) {
+			resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, opts)
 			sendJSON(w, resp.StatusCode, resp)
 			return
 		}
-		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		resp := responses.ErrorResponseBuilder.InternalServerError("", opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -130,24 +140,25 @@ func (h *ProductCommandHandler) DeleteProduct(w http.ResponseWriter, r *http.Req
 func (h *ProductCommandHandler) ChangeProductStatus(w http.ResponseWriter, r *http.Request, id string) {
 	log := h.log("ChangeProductStatus", r)
 	log.Info("Handling ChangeProductStatus command", map[string]interface{}{"product_id": id})
+	opts := errOpts(r)
 
 	var body struct {
 		Active bool `json:"active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		resp := responses.ErrorResponseBuilder.ValidationError("Invalid JSON payload", nil)
+		resp := responses.ErrorResponseBuilder.ValidationError(msgInvalidJSON, opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
 
 	cmd := commands.ChangeProductStatusCommand{ID: id, Active: body.Active}
 	if err := h.statusHandler.Handle(r.Context(), cmd); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			resp := responses.ErrorResponseBuilder.NotFound("Product not found")
+		if strings.Contains(err.Error(), errNotFound) {
+			resp := responses.ErrorResponseBuilder.NotFound(msgProductNotFound, opts)
 			sendJSON(w, resp.StatusCode, resp)
 			return
 		}
-		resp := responses.ErrorResponseBuilder.InternalServerError(err.Error())
+		resp := responses.ErrorResponseBuilder.InternalServerError("", opts)
 		sendJSON(w, resp.StatusCode, resp)
 		return
 	}
@@ -162,7 +173,7 @@ func (h *ProductCommandHandler) log(method string, r *http.Request) *logging.Enh
 		WithHandler("ProductCommandHandler").
 		WithMethod(method).
 		WithContext(map[string]interface{}{
-			"request_id": r.Context().Value("request_id"),
+			"request_id": middleware.RequestIDFromContext(r.Context()),
 			"method":     r.Method,
 			"path":       r.URL.Path,
 		})

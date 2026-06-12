@@ -63,7 +63,7 @@ func (h *UpdateProductCommandHandler) Handle(ctx context.Context, cmd UpdateProd
 	if cmd.Category != "" {
 		product.Category = cmd.Category
 	}
-	if cmd.Price > 0 {
+	if cmd.Price != 0 {
 		if err := product.UpdatePrice(cmd.Price); err != nil {
 			return nil, err
 		}
