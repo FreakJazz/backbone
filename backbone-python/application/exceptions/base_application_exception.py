@@ -26,8 +26,8 @@ class ApplicationException(BaseKernelException):
         http_code: int = 422,
         **kwargs
     ):
-        # Validar que el código pertenezca a la capa de aplicación
-        if not (10000000 <= code <= 10999999):
-            raise ValueError(f"Application exception code must be in range 10000000-10999999, got: {code}")
+        # Acepta códigos legacy 10XXXXXX y nuevos 9-dígitos 12XXXXXXX (Application layer)
+        if not ((10000000 <= code <= 10999999) or (120000000 <= code <= 129999999)):
+            raise ValueError(f"Application exception code must be in range 10000000-10999999 or 120000000-129999999, got: {code}")
         
         super().__init__(code, message, http_code, **kwargs)

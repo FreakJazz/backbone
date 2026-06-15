@@ -23,14 +23,17 @@ class UpdateProductCommandHandler:
     def handle(self, cmd: UpdateProductCommand) -> str:
         product = self._repo.find_by_id(cmd.product_id)
         if not product:
-            raise ResourceNotFoundException("Product", resource_id=cmd.product_id)
+            raise ResourceNotFoundException(
+                "Product not found",
+                resource_type="Product",
+                resource_id=cmd.product_id,
+            )
 
         if cmd.name is not None:
             if len(cmd.name.strip()) < 2:
                 raise ValidationException(
                     "name must be at least 2 characters",
-                    error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY,
-                    field="name",
+                    code=ErrorCodes.APP_VALIDATION_FAILURE,
                 )
             product.name = cmd.name.strip()
 
@@ -38,8 +41,7 @@ class UpdateProductCommandHandler:
             if cmd.price <= 0:
                 raise ValidationException(
                     "price must be greater than 0",
-                    error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY,
-                    field="price",
+                    code=ErrorCodes.APP_VALIDATION_FAILURE,
                 )
             product.price = cmd.price
 

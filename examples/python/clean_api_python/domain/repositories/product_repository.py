@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
+from backbone.domain.specifications import Specification
+
 from ..entities.product import Product
 
 
@@ -14,8 +16,9 @@ class IProductRepository(ABC):
     @abstractmethod
     def find_all(
         self,
-        filters: Optional[list] = None,
-        sort_by: Optional[str] = None,
+        spec: Optional[Specification] = None,
+        sort_field: str = "name",
+        sort_desc: bool = False,
         page: int = 1,
         page_size: int = 10,
     ) -> Tuple[List[Product], int]: ...

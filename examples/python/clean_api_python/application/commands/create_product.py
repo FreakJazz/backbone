@@ -24,20 +24,17 @@ class CreateProductCommandHandler:
         if not cmd.name or len(cmd.name.strip()) < 2:
             raise ValidationException(
                 "name must be at least 2 characters",
-                error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY,
-                field="name",
+                code=ErrorCodes.APP_VALIDATION_FAILURE,
             )
         if cmd.price <= 0:
             raise ValidationException(
                 "price must be greater than 0",
-                error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY,
-                field="price",
+                code=ErrorCodes.APP_VALIDATION_FAILURE,
             )
         if not cmd.category:
             raise ValidationException(
                 "category is required",
-                error_code=ErrorCodes.IFC_INVALID_REQUEST_BODY,
-                field="category",
+                code=ErrorCodes.APP_VALIDATION_FAILURE,
             )
 
         product = Product(

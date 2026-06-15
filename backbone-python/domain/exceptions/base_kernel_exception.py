@@ -51,9 +51,9 @@ class BaseKernelException(Exception):
         self.internal_data = internal_data or {}
         self.timestamp = datetime.utcnow().isoformat()
         
-        # Validar código de 8 dígitos
-        if not (10000000 <= code <= 99999999):
-            raise ValueError(f"Error code must be 8 digits, got: {code}")
+        # Validar código de 8 o 9 dígitos (formato LL_NNNNNNN)
+        if not (10000000 <= code <= 999999999):
+            raise ValueError(f"Error code must be 8 or 9 digits, got: {code}")
         
         super().__init__(message)
     

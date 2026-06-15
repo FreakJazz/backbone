@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from domain.repositories.product_repository import IProductRepository
 from domain.specifications.product_specs import parse_product_filters, parse_product_sort
@@ -26,12 +26,13 @@ class GetProductsQueryHandler:
         self._repo = repo
 
     def handle(self, query: GetProductsQuery) -> GetProductsResult:
-        specs = parse_product_filters(query.filters)
-        sort_field, sort_dir = parse_product_sort(query.sort_by or "")
+        spec = parse_product_filters(query.filters)
+        sort_field, sort_dir = parse_product_sort(query.sort_by)
 
         products, total = self._repo.find_all(
-            filters=specs,
-            sort_by=query.sort_by,
+            spec=spec,
+            sort_field=sort_field,
+            sort_desc=(sort_dir == "desc"),
             page=query.page,
             page_size=query.page_size,
         )

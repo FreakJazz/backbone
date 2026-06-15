@@ -1,4 +1,6 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
+from backbone.domain.specifications import Specification
 
 from domain.entities.product import Product
 from domain.repositories.product_repository import IProductRepository
@@ -17,20 +19,23 @@ class MemoryProductRepository(IProductRepository):
 
     def find_all(
         self,
-        filters: Optional[list] = None,
-        sort_by: Optional[str] = None,
+        spec: Optional[Specification] = None,
+        sort_field: str = "name",
+        sort_desc: bool = False,
         page: int = 1,
         page_size: int = 10,
     ) -> Tuple[List[Product], int]:
         products = list(self._store.values())
 
-        if filters:
-            products = [p for p in products if self._matches(p, filters)]
+        # Filtrado usando Specification.is_satisfied_by sobre el dict del producto
+        if spec is not None:
+            products = [p for p in products if spec.is_satisfied_by(p)]
 
-        if sort_by and ":" in sort_by:
-            field, direction = sort_by.split(":", 1)
-            reverse = direction.lower() == "desc"
-            products.sort(key=lambda p: getattr(p, field, ""), reverse=reverse)
+        # Ordenamiento
+        products.sort(
+            key=lambda p: getattr(p, sort_field, ""),
+            reverse=sort_desc,
+        )
 
         total = len(products)
         start = (page - 1) * page_size
@@ -41,11 +46,3 @@ class MemoryProductRepository(IProductRepository):
 
     def exists(self, product_id: str) -> bool:
         return product_id in self._store
-
-    def _matches(self, product: Product, filters: list) -> bool:
-        """Simple spec evaluation — each spec has .is_satisfied_by()."""
-        for spec in filters:
-            if hasattr(spec, "is_satisfied_by"):
-                if not spec.is_satisfied_by(product.to_dict()):
-                    return False
-        return True

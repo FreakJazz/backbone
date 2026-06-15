@@ -18,5 +18,9 @@ class GetProductByIdQueryHandler:
     def handle(self, query: GetProductByIdQuery) -> Dict[str, Any]:
         product = self._repo.find_by_id(query.product_id)
         if not product:
-            raise ResourceNotFoundException("Product", resource_id=query.product_id)
+            raise ResourceNotFoundException(
+                "Product not found",
+                resource_type="Product",
+                resource_id=query.product_id,
+            )
         return product.to_dict()

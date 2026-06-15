@@ -1,22 +1,23 @@
-from backbone.domain.specifications import FilterParser, SortDirection
+from typing import Optional
 
-
-def parse_product_filters(raw_filters: list) -> list:
-    """Convierte query params a especificaciones de filtro."""
-    if not raw_filters:
-        return []
-    return FilterParser().parse_filters(raw_filters)
+from backbone.domain.specifications import FilterParser, Specification, SortDirection
 
 
 VALID_SORT_FIELDS = {"name", "price", "category", "status"}
 
 
-def parse_product_sort(sort_by: str) -> tuple:
-    """Parsea 'field:asc|desc'. Retorna (field, direction)."""
+def parse_product_filters(raw_filters: list) -> Optional[Specification]:
+    """Convierte query params a una Specification compuesta (o None si no hay filtros)."""
+    if not raw_filters:
+        return None
+    return FilterParser().parse_filters(raw_filters)
+
+
+def parse_product_sort(sort_by: Optional[str]) -> tuple:
+    """Parsea 'field:asc|desc'. Retorna (field, direction_str)."""
     if not sort_by or ":" not in sort_by:
-        return "name", SortDirection.ASC
+        return "name", "asc"
     field, direction = sort_by.split(":", 1)
     if field not in VALID_SORT_FIELDS:
         field = "name"
-    dir_enum = SortDirection.DESC if direction.lower() == "desc" else SortDirection.ASC
-    return field, dir_enum
+    return field, direction.lower()

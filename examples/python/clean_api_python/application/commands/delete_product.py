@@ -16,6 +16,10 @@ class DeleteProductCommandHandler:
 
     def handle(self, cmd: DeleteProductCommand) -> str:
         if not self._repo.exists(cmd.product_id):
-            raise ResourceNotFoundException("Product", resource_id=cmd.product_id)
+            raise ResourceNotFoundException(
+                "Product not found",
+                resource_type="Product",
+                resource_id=cmd.product_id,
+            )
         self._repo.delete(cmd.product_id)
         return cmd.product_id

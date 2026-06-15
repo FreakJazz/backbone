@@ -17,8 +17,22 @@ Endpoints:
 """
 import sys
 import os
+import types
 
-sys.path.insert(0, os.path.dirname(__file__))
+_here = os.path.dirname(os.path.abspath(__file__))
+_bb_root = os.path.abspath(os.path.join(_here, "..", "..", "..", "backbone-python"))
+
+# backbone-python/ es la raíz del paquete backbone (sin subcarpeta backbone/).
+# El módulo virtual 'backbone' apunta a backbone-python/ para que
+# 'from backbone.xxx import' resuelva correctamente con imports relativos internos.
+# IMPORTANTE: NO agregar _bb_root a sys.path directamente — causaría que Python
+# mezcle backbone-python/infrastructure/ con infrastructure/ del ejemplo.
+_bb = types.ModuleType("backbone")
+_bb.__path__ = [_bb_root]
+_bb.__package__ = "backbone"
+sys.modules["backbone"] = _bb
+
+sys.path.insert(0, _here)
 
 from flask import Flask
 from flask_restx import Api
