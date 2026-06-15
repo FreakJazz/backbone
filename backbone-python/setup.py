@@ -1,8 +1,28 @@
 """
 Setup script for Backbone Clean Architecture Framework
 """
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
+
+
+def find_backbone_packages():
+    """Descubre todos los sub-paquetes y los prefija con 'backbone.'."""
+    _exclude = {
+        'tests', 'examples', '__pycache__', '.git', '.pytest_cache',
+        '.venv', 'htmlcov', 'build', 'dist',
+    }
+    packages = ['backbone']
+    root = os.path.dirname(os.path.abspath(__file__))
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in _exclude and not d.endswith('.egg-info')
+        ]
+        if '__init__.py' in filenames and dirpath != root:
+            rel = os.path.relpath(dirpath, root).replace(os.sep, '.')
+            if not rel.startswith(('tests', 'examples')):
+                packages.append(f'backbone.{rel}')
+    return packages
 
 # Read README file
 def read_readme():
@@ -34,7 +54,8 @@ setup(
         "Bug Reports": "https://github.com/FreakJazz/backbone/issues",
         "Source": "https://github.com/FreakJazz/backbone",
     },
-    packages=find_packages(exclude=["tests", "tests.*", "examples", "examples.*"]),
+    package_dir={"backbone": ""},
+    packages=find_backbone_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

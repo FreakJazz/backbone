@@ -75,10 +75,12 @@ Repository = "https://github.com/FreakJazz/backbone"
 "Bug Reports" = "https://github.com/FreakJazz/backbone/issues"
 "Source Code" = "https://github.com/FreakJazz/backbone"
 
+[tool.setuptools]
+package-dir = {"backbone" = ""}
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["backbone*"]
-exclude = ["tests*", "docs*", "*.tests*", "*.tests.*", "tests.*"]
+exclude = ["tests*", "examples*", "docs*", ".venv*", "htmlcov*"]
 
 [tool.setuptools.package-data]
 backbone = ["py.typed"]
