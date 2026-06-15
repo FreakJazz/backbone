@@ -24,6 +24,9 @@ class IProductRepository(ABC):
     ) -> Tuple[List[Product], int]: ...
 
     @abstractmethod
+    def find_by_name(self, name: str) -> Optional[Product]: ...
+
+    @abstractmethod
     def delete(self, product_id: str) -> None: ...
 
     @abstractmethod

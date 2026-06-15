@@ -12,7 +12,7 @@ Both implementations share identical response contracts, exception codes, filter
 |---|---|---|
 | Folder | [`backbone-python/`](./backbone-python/README.md) | [`backbone-go/`](./backbone-go/README.md) |
 | Install | `pip install git+https://github.com/FreakJazz/backbone.git` | `go get github.com/freakjazz/backbone-go` |
-| Example | `backbone-python/examples/clean_api_python/` | `backbone-go/examples/clean-api-go/` |
+| Example | [`examples/python/clean_api_python/`](./examples/python/clean_api_python/) | [`examples/go/clean-api-go/`](./examples/go/clean-api-go/README.md) |
 
 ---
 
@@ -38,7 +38,7 @@ go get github.com/freakjazz/backbone-go
 | Module / Package | Python | Go | Purpose |
 |---|---|---|---|
 | `domain/specifications` | `backbone.domain.specifications` | `domain/specifications` | `FilterParser` · `SortParser` · Specification + Criteria pattern |
-| `domain/exceptions` | `backbone.domain.exceptions` | `domain/exceptions` | 8-digit exception codes by layer |
+| `domain/exceptions` | `backbone.domain.exceptions` | `domain/exceptions` | 9-digit exception codes by layer |
 | `domain/repositories` | `backbone.domain.repositories` | `domain/repositories` | `IRepository` / `IReadOnlyRepository` interfaces |
 | `domain/ports` | `backbone.domain.ports` | `domain/ports` | `EventBus` · `EventStore` · `BaseEvent` |
 | `application/exceptions` | `backbone.application.exceptions` | `application/exceptions` | Application-layer exceptions |
@@ -379,14 +379,15 @@ bus.Publish(ctx, event)
 
 ```bash
 # Python
-cd backbone-python/examples/clean_api_python
+cd examples/python/clean_api_python
 pip install flask flask-restx
 python main.py          # → http://localhost:5000/docs
 
 # Go
-cd backbone-go/examples/clean-api-go
+cd examples/go/clean-api-go
 go mod tidy
-go run main.go          # → http://localhost:8080/swagger/
+swag init               # genera docs Swagger
+go run main.go          # → http://localhost:8005/docs/index.html
 ```
 
 ---

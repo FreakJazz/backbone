@@ -5,12 +5,11 @@ import (
 
 	bberrors "github.com/freakjazz/backbone-go/errors"
 	bbex "github.com/freakjazz/backbone-go/interfaces/responses"
+	"github.com/freakjazz/backbone-go/infrastructure/logging"
 	"github.com/freakjazz/clean-api-go/domain/repositories"
 )
 
-var validStatuses = map[string]bool{
-	"active": true, "inactive": true, "discontinued": true,
-}
+var validStatuses = map[string]bool{"active": true, "inactive": true, "discontinued": true}
 
 type ChangeProductStatusCommand struct {
 	ProductID string
@@ -18,20 +17,23 @@ type ChangeProductStatusCommand struct {
 }
 
 type ChangeProductStatusCommandHandler struct {
-	repo repositories.IProductRepository
+	repo   repositories.IProductRepository
+	logger *logging.EnhancedLogger
 }
 
 func NewChangeProductStatusCommandHandler(repo repositories.IProductRepository) *ChangeProductStatusCommandHandler {
-	return &ChangeProductStatusCommandHandler{repo: repo}
+	return &ChangeProductStatusCommandHandler{
+		repo:   repo,
+		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("ChangeProductStatusCommandHandler"),
+	}
 }
 
 func (h *ChangeProductStatusCommandHandler) Handle(ctx context.Context, cmd ChangeProductStatusCommand) (string, *bbex.ErrorResponse) {
+	log := h.logger.WithMethod("Handle")
+
 	if !validStatuses[cmd.Status] {
-		e := bbex.ErrorResponseBuilder.ValidationError("status must be active, inactive, or discontinued",
-			bbex.ErrorOpts{
-				FieldErrors: map[string]string{"status": "invalid value"},
-				Code:        bberrors.IfcInvalidRequestBody.Int(),
-			})
+		e := bbex.ErrorResponseBuilder.ValidationError("status must be one of: active, inactive, discontinued",
+			bbex.ErrorOpts{Code: bberrors.IfcInvalidRequestBody.Int()})
 		return "", &e
 	}
 
@@ -43,8 +45,11 @@ func (h *ChangeProductStatusCommandHandler) Handle(ctx context.Context, cmd Chan
 
 	product.Status = cmd.Status
 	if _, err := h.repo.Save(ctx, product); err != nil {
+		log.ErrorWithCode("Save failed", bberrors.InfraDBFailure.Int(), map[string]interface{}{"error": err.Error()})
 		e := bbex.ErrorResponseBuilder.InternalServerError(err.Error())
 		return "", &e
 	}
+
+	log.Info("Product status changed", map[string]interface{}{"id": product.ID, "status": cmd.Status})
 	return product.ID, nil
 }

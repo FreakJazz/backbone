@@ -3,6 +3,7 @@
 // Setup:
 //
 //	go mod tidy
+//	swag init
 //	go run main.go
 //
 // Endpoints:
@@ -13,12 +14,23 @@
 //	PUT    /api/v1/products/{id}
 //	DELETE /api/v1/products/{id}
 //	PATCH  /api/v1/products/{id}/status
+//	GET    /docs/index.html  → Swagger UI
+
+// @title           Clean API Go
+// @version         1.0
+// @description     backbone — Clean Architecture + CQRS example with net/http
+// @host            localhost:8005
+// @BasePath        /
 package main
 
 import (
 	"context"
 	"log"
 	"net/http"
+
+	// ── Swagger ───────────────────────────────────────────────────────────────
+	_ "github.com/freakjazz/clean-api-go/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	// ── Commands ──────────────────────────────────────────────────────────────
 	"github.com/freakjazz/clean-api-go/application/commands"
@@ -55,11 +67,26 @@ func main() {
 
 	// 5. Routes
 	mux := http.NewServeMux()
+
+	// Swagger UI
+	mux.HandleFunc("/docs/", httpSwagger.WrapHandler)
+
+	// Root info
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"service":"clean-api-go","docs":"http://localhost:8005/docs/index.html","api":"/api/v1/products"}`))
+	})
+
 	v1.RegisterRoutes(mux, cmdHandler, qryHandler)
 
-	log.Println("clean-api-go running on :8080")
+	log.Println("clean-api-go running on :8005")
+	log.Println("  Swagger UI → http://localhost:8005/docs/index.html")
 	log.Println("  GET  /api/v1/products?filters=category,eq,Electronics&page=1&page_size=5&sort_by=price:desc")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := http.ListenAndServe(":8005", mux); err != nil {
 		log.Fatal(err)
 	}
 }

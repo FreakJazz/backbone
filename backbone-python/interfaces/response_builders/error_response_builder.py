@@ -15,11 +15,10 @@ Catálogo de capas:
 Contrato de respuesta:
 
     {
-        "rid":          "uuid",       ← siempre presente, auto-generado si no se pasa
-        "status_code":  400,
-        "message":      "...",
-        "error_code":   130000001,    ← siempre presente, código del catálogo
-        "field_errors": {...}          ← opcional, solo validación
+        "rid":         "uuid",       ← siempre presente, auto-generado si no se pasa
+        "status_code": 400,
+        "message":     "...",
+        "error_code":  130000001,    ← siempre presente, código del catálogo
     }
 """
 from typing import Dict, Any, Optional
@@ -42,17 +41,13 @@ class ErrorResponseBuilder:
         message: str,
         error_code: int,
         rid: Optional[str] = None,
-        field_errors: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        response: Dict[str, Any] = {
+        return {
             "rid": rid or _new_rid(),
             "status_code": status_code,
             "message": message,
             "error_code": error_code,
         }
-        if field_errors:
-            response["field_errors"] = field_errors
-        return response
 
     @staticmethod
     def from_exception(
@@ -89,7 +84,6 @@ class ErrorResponseBuilder:
     @staticmethod
     def validation_error(
         message: str = "Validation failed",
-        field_errors: Optional[Dict[str, str]] = None,
         rid: Optional[str] = None,
         error_code: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -99,7 +93,6 @@ class ErrorResponseBuilder:
             message=message,
             error_code=error_code or ErrorCodes.IFC_INVALID_REQUEST_BODY,
             rid=rid,
-            field_errors=field_errors,
         )
 
     @staticmethod

@@ -41,6 +41,13 @@ class MemoryProductRepository(IProductRepository):
         start = (page - 1) * page_size
         return products[start: start + page_size], total
 
+    def find_by_name(self, name: str) -> Optional[Product]:
+        lower = name.strip().lower()
+        for p in self._store.values():
+            if p.name.lower() == lower:
+                return p
+        return None
+
     def delete(self, product_id: str) -> None:
         self._store.pop(product_id, None)
 

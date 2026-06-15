@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from backbone.errors import ErrorCodes
-from backbone.application.exceptions import ValidationException
+from backbone.application.exceptions import ValidationException, ResourceConflictException
 
 from domain.entities.product import Product
 from domain.repositories.product_repository import IProductRepository
@@ -35,6 +35,16 @@ class CreateProductCommandHandler:
             raise ValidationException(
                 "category is required",
                 code=ErrorCodes.APP_VALIDATION_FAILURE,
+            )
+
+        existing = self._repo.find_by_name(cmd.name)
+        if existing:
+            raise ResourceConflictException(
+                "a product with that name already exists",
+                resource_type="Product",
+                conflict_field="name",
+                conflict_value=cmd.name.strip(),
+                code=ErrorCodes.APP_CONFLICT,
             )
 
         product = Product(

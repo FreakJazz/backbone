@@ -21,6 +21,18 @@ func NewProductQueryHandler(
 	return &ProductQueryHandler{list: list, detail: detail}
 }
 
+// List godoc
+// @Summary      List products
+// @Description  Get paginated list of products with optional filters and sorting
+// @Tags         products
+// @Produce      json
+// @Param        filters   query  []string  false  "Repeated filter tokens e.g. category,eq,Electronics,and &filters=price,gt,500" collectionFormat(multi)
+// @Param        page      query  int     false  "Page number (default 1)"
+// @Param        page_size query  int     false  "Items per page (default 10)"
+// @Param        sort_by   query  string  false  "Sort field and direction e.g. price:desc"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      500  {object}  handlers.ErrorResponse
+// @Router       /api/v1/products [get]
 func (h *ProductQueryHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := queries.GetProductsQuery{
 		Filters:  r.URL.Query()["filters"],
@@ -40,6 +52,15 @@ func (h *ProductQueryHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// Detail godoc
+// @Summary      Get product by ID
+// @Description  Returns a single product
+// @Tags         products
+// @Produce      json
+// @Param        id  path  string  true  "Product ID"
+// @Success      200  {object}  map[string]interface{}
+// @Failure      404  {object}  handlers.ErrorResponse
+// @Router       /api/v1/products/{id} [get]
 func (h *ProductQueryHandler) Detail(w http.ResponseWriter, r *http.Request, productID string) {
 	data, errResp := h.detail.Handle(r.Context(), queries.GetProductByIDQuery{ProductID: productID})
 	if errResp != nil {

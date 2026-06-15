@@ -1,0 +1,251 @@
+basePath: /
+definitions:
+  handlers.ChangeStatusRequest:
+    properties:
+      status:
+        enum:
+        - active
+        - inactive
+        - discontinued
+        example: inactive
+        type: string
+    type: object
+  handlers.CreateProductRequest:
+    properties:
+      category:
+        example: Electronics
+        type: string
+      description:
+        example: High-performance laptop
+        type: string
+      name:
+        example: Laptop Pro
+        type: string
+      price:
+        example: 999.99
+        type: number
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      error_code:
+        example: 130000001
+        type: integer
+      message:
+        example: name must be at least 2 characters
+        type: string
+      rid:
+        example: afdef44d-2f09-49d8-a847-89e0c56d8ce4
+        type: string
+      status_code:
+        example: 400
+        type: integer
+    type: object
+  handlers.UpdateProductRequest:
+    properties:
+      category:
+        example: Electronics
+        type: string
+      description:
+        example: Updated description
+        type: string
+      name:
+        example: Laptop Pro
+        type: string
+      price:
+        example: 999.99
+        type: number
+    type: object
+host: localhost:8005
+info:
+  contact: {}
+  description: backbone — Clean Architecture + CQRS example with net/http
+  title: Clean API Go
+  version: "1.0"
+paths:
+  /api/v1/products:
+    get:
+      description: Get paginated list of products with optional filters and sorting
+      parameters:
+      - collectionFormat: multi
+        description: Repeated filter tokens e.g. category,eq,Electronics,and &filters=price,gt,500
+        in: query
+        items:
+          type: string
+        name: filters
+        type: array
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 10)
+        in: query
+        name: page_size
+        type: integer
+      - description: Sort field and direction e.g. price:desc
+        in: query
+        name: sort_by
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List products
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Creates a new product
+      parameters:
+      - description: Product data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create product
+      tags:
+      - products
+  /api/v1/products/{id}:
+    delete:
+      description: Deletes a product by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete product
+      tags:
+      - products
+    get:
+      description: Returns a single product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get product by ID
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing product (partial update supported)
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update product
+      tags:
+      - products
+  /api/v1/products/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Changes product status (active | inactive | discontinued)
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ChangeStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Change product status
+      tags:
+      - products
+swagger: "2.0"

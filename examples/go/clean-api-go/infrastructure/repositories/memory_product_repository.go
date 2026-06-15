@@ -76,6 +76,18 @@ func (r *MemoryProductRepository) Count(_ context.Context, criteria *specificati
 	return len(r.applySpec(all, criteria)), nil
 }
 
+func (r *MemoryProductRepository) FindByName(_ context.Context, name string) (*entities.Product, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	lower := strings.ToLower(name)
+	for _, p := range r.store {
+		if strings.ToLower(p.Name) == lower {
+			return p, nil
+		}
+	}
+	return nil, nil
+}
+
 func (r *MemoryProductRepository) Delete(_ context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

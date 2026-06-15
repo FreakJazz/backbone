@@ -3,6 +3,8 @@
 package responses
 
 import (
+	"strings"
+
 	bberrors "github.com/freakjazz/backbone-go/errors"
 	"github.com/google/uuid"
 )
@@ -149,11 +151,10 @@ func (b *paginatedResponseBuilder) Empty(message string) PaginatedResponse {
 // Respuesta:
 //
 //	{
-//	  "rid":          "uuid",
-//	  "status_code":  400,
-//	  "message":      "...",
-//	  "error_code":   130000001,    ← siempre presente
-//	  "field_errors": {...}          ← omitido si nil
+//	  "rid":         "uuid",
+//	  "status_code": 400,
+//	  "message":     "...",
+//	  "error_code":  130000001,    ← siempre presente
 //	}
 // ---------------------------------------------------------------------------
 
@@ -166,18 +167,14 @@ type ErrorOpts struct {
 	// Code sobreescribe el código de error por defecto del método.
 	// 0 = usar el default del catálogo backbone.
 	Code int
-
-	// FieldErrors lleva mensajes de validación por campo.
-	FieldErrors map[string]string
 }
 
 // ErrorResponse es el cuerpo estándar de error.
 type ErrorResponse struct {
-	RID         string            `json:"rid"`
-	StatusCode  int               `json:"status_code"`
-	Message     string            `json:"message"`
-	ErrorCode   int               `json:"error_code"`
-	FieldErrors map[string]string `json:"field_errors,omitempty"`
+	RID        string `json:"rid"`
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
+	ErrorCode  int    `json:"error_code"`
 }
 
 type errorResponseBuilder struct{}
@@ -193,18 +190,17 @@ func (b *errorResponseBuilder) build(statusCode int, message string, defaultCode
 	}
 	rid := o.RID
 	if rid == "" {
-		rid = uuid.New().String()
+		rid = strings.ReplaceAll(uuid.New().String(), "-", "")
 	}
 	code := o.Code
 	if code == 0 {
 		code = defaultCode
 	}
 	return ErrorResponse{
-		RID:         rid,
-		StatusCode:  statusCode,
-		Message:     message,
-		ErrorCode:   code,
-		FieldErrors: o.FieldErrors,
+		RID:        rid,
+		StatusCode: statusCode,
+		Message:    message,
+		ErrorCode:  code,
 	}
 }
 

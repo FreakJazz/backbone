@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from backbone.errors import ErrorCodes
-from backbone.application.exceptions import ValidationException, ResourceNotFoundException
+from backbone.application.exceptions import ValidationException, ResourceNotFoundException, ResourceConflictException
 
 from domain.repositories.product_repository import IProductRepository
 
@@ -30,12 +30,23 @@ class UpdateProductCommandHandler:
             )
 
         if cmd.name is not None:
-            if len(cmd.name.strip()) < 2:
+            name = cmd.name.strip()
+            if len(name) < 2:
                 raise ValidationException(
                     "name must be at least 2 characters",
                     code=ErrorCodes.APP_VALIDATION_FAILURE,
                 )
-            product.name = cmd.name.strip()
+            if name.lower() != product.name.lower():
+                existing = self._repo.find_by_name(name)
+                if existing:
+                    raise ResourceConflictException(
+                        "a product with that name already exists",
+                        resource_type="Product",
+                        conflict_field="name",
+                        conflict_value=name,
+                        code=ErrorCodes.APP_CONFLICT,
+                    )
+            product.name = name
 
         if cmd.price is not None:
             if cmd.price <= 0:
