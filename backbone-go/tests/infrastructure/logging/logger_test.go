@@ -124,6 +124,50 @@ func TestEnhancedLoggerLogQuery(t *testing.T) {
 	assert.EqualValues(t, 12, query["duration_ms"])
 }
 
+func TestJSONFormatter(t *testing.T) {
+	buf := &bytes.Buffer{}
+	l := logging.NewLogger("svc")
+	l.SetOutput(buf)
+	l.SetFormatter(&logging.JSONFormatter{})
+
+	l.Info("json test", map[string]interface{}{"key": "val"})
+
+	var entry map[string]interface{}
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &entry))
+	assert.Equal(t, "INFO", entry["level"])
+	assert.Equal(t, "json test", entry["message"])
+}
+
+func TestConsoleFormatter(t *testing.T) {
+	buf := &bytes.Buffer{}
+	l := logging.NewLogger("svc")
+	l.SetOutput(buf)
+	l.SetFormatter(logging.NewConsoleFormatter())
+
+	l.Warning("console test", nil)
+
+	out := buf.String()
+	assert.Contains(t, out, "WARNING")
+	assert.Contains(t, out, "console test")
+	assert.Contains(t, out, "svc")
+}
+
+func TestCompactJSONFormatter(t *testing.T) {
+	buf := &bytes.Buffer{}
+	l := logging.NewLogger("svc")
+	l.SetOutput(buf)
+	l.SetFormatter(&logging.CompactJSONFormatter{})
+
+	l.Error("compact test", nil)
+
+	var entry map[string]interface{}
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &entry))
+	assert.Equal(t, "ERROR", entry["level"])
+	assert.Equal(t, "compact test", entry["msg"])
+	_, hasTS := entry["ts"]
+	assert.True(t, hasTS)
+}
+
 func TestLogLevels(t *testing.T) {
 	levels := []struct {
 		level    logging.LogLevel

@@ -26,8 +26,8 @@ from backbone import (
 
 # === MOCK ENTITIES AND SERVICES FOR TESTING ===
 
-class TestEntity:
-    """Test entity for application layer testing"""
+class SampleEntity:
+    """Sample entity for application layer testing"""
     def __init__(self, id: str, name: str, email: str, age: int, is_active: bool = True):
         self.id = id
         self.name = name
@@ -36,14 +36,14 @@ class TestEntity:
         self.is_active = is_active
 
 
-class TestApplicationService:
+class SampleApplicationService:
     """Test application service for event testing"""
     
     def __init__(self, repository: MockRepository, event_bus=None):
         self.repository = repository
         self.event_bus = event_bus
         
-    async def create_entity(self, entity_data: dict) -> TestEntity:
+    async def create_entity(self, entity_data: dict) -> SampleEntity:
         """Create entity and publish events"""
         # Validation
         if entity_data.get("age", 0) < 18:
@@ -64,7 +64,7 @@ class TestApplicationService:
                 )
         
         # Create entity
-        entity = TestEntity(**entity_data)
+        entity = SampleEntity(**entity_data)
         saved_entity = await self.repository.save(entity)
         
         # Publish events if event bus is available
@@ -226,127 +226,69 @@ class TestBaseEvent(BaseTestCase):
 
 class TestInMemoryEventStore(BaseTestCase):
     """Test in-memory event store"""
-    
+
     def setUp(self):
         super().setUp()
         self.event_store = InMemoryEventStore()
-    
-    async def test_save_and_retrieve_event(self):
+
+    def test_save_and_retrieve_event(self):
         """Test: Save and retrieve single event"""
-        # Arrange
+        import asyncio
         event = BaseEvent(
-            event_name="TestEvent",
-            source="test-service",
-            data={"test": "data"},
-            microservice="test-service",
-            functionality="test-function"
+            event_name="TestEvent", source="test-service",
+            data={"test": "data"}, microservice="test-service", functionality="test-function",
         )
-        
-        # Act
-        await self.event_store.save_event(event)
-        retrieved_event = await self.event_store.get_event_by_id(event.event_id)
-        
-        # Assert
-        self.assertIsNotNone(retrieved_event)
-        self.assertEqual(retrieved_event.event_id, event.event_id)
-        self.assertEqual(retrieved_event.event_name, "TestEvent")
-    
-    async def test_get_events_by_source(self):
+        asyncio.run(self.event_store.save_event(event))
+        retrieved = asyncio.run(self.event_store.get_event_by_id(event.event_id))
+        self.assertIsNotNone(retrieved)
+        self.assertEqual(retrieved.event_id, event.event_id)
+        self.assertEqual(retrieved.event_name, "TestEvent")
+
+    def test_get_events_by_source(self):
         """Test: Get events filtered by source"""
-        # Arrange
-        event1 = BaseEvent(
-            event_name="Event1",
-            source="service-a",
-            data={"test": "data1"},
-            microservice="service-a",
-            functionality="function-1"
-        )
-        event2 = BaseEvent(
-            event_name="Event2",
-            source="service-b",
-            data={"test": "data2"},
-            microservice="service-b",
-            functionality="function-2"
-        )
-        event3 = BaseEvent(
-            event_name="Event3",
-            source="service-a",
-            data={"test": "data3"},
-            microservice="service-a",
-            functionality="function-3"
-        )
-        
-        # Act
-        await self.event_store.save_event(event1)
-        await self.event_store.save_event(event2)
-        await self.event_store.save_event(event3)
-        
-        service_a_events = await self.event_store.get_events_by_source("service-a")
-        
-        # Assert
-        self.assertEqual(len(service_a_events), 2)
-        event_names = [event.event_name for event in service_a_events]
-        self.assertIn("Event1", event_names)
-        self.assertIn("Event3", event_names)
-        self.assertNotIn("Event2", event_names)
-    
-    async def test_get_events_by_name(self):
+        import asyncio
+
+        def _make(name, source):
+            return BaseEvent(event_name=name, source=source, data={},
+                             microservice=source, functionality="fn")
+
+        e1, e2, e3 = _make("Event1", "service-a"), _make("Event2", "service-b"), _make("Event3", "service-a")
+        for e in (e1, e2, e3):
+            asyncio.run(self.event_store.save_event(e))
+
+        result = asyncio.run(self.event_store.get_events_by_source("service-a"))
+        self.assertEqual(len(result), 2)
+        names = [e.event_name for e in result]
+        self.assertIn("Event1", names)
+        self.assertIn("Event3", names)
+        self.assertNotIn("Event2", names)
+
+    def test_get_events_by_name(self):
         """Test: Get events filtered by event name"""
-        # Arrange
-        event1 = BaseEvent(
-            event_name="UserCreated",
-            source="service-a",
-            data={"user": "alice"},
-            microservice="service-a",
-            functionality="create-user"
-        )
-        event2 = BaseEvent(
-            event_name="UserUpdated",
-            source="service-a",
-            data={"user": "bob"},
-            microservice="service-a",
-            functionality="update-user"
-        )
-        event3 = BaseEvent(
-            event_name="UserCreated",
-            source="service-b",
-            data={"user": "charlie"},
-            microservice="service-b",
-            functionality="create-user"
-        )
-        
-        # Act
-        await self.event_store.save_event(event1)
-        await self.event_store.save_event(event2)
-        await self.event_store.save_event(event3)
-        
-        created_events = await self.event_store.get_events_by_name("UserCreated")
-        
-        # Assert
-        self.assertEqual(len(created_events), 2)
-        for event in created_events:
-            self.assertEqual(event.event_name, "UserCreated")
-    
-    async def test_get_events_with_limit(self):
+        import asyncio
+
+        def _make(name, source):
+            return BaseEvent(event_name=name, source=source, data={},
+                             microservice=source, functionality="fn")
+
+        for e in (_make("UserCreated", "a"), _make("UserUpdated", "a"), _make("UserCreated", "b")):
+            asyncio.run(self.event_store.save_event(e))
+
+        result = asyncio.run(self.event_store.get_events_by_name("UserCreated"))
+        self.assertEqual(len(result), 2)
+        for e in result:
+            self.assertEqual(e.event_name, "UserCreated")
+
+    def test_get_events_with_limit(self):
         """Test: Get events with limit parameter"""
-        # Arrange - Create multiple events
-        events = []
+        import asyncio
         for i in range(5):
-            event = BaseEvent(
-                event_name=f"Event{i}",
-                source="test-service",
-                data={"index": i},
-                microservice="test-service",
-                functionality="test-function"
-            )
-            events.append(event)
-            await self.event_store.save_event(event)
-        
-        # Act
-        limited_events = await self.event_store.get_events_by_source("test-service", limit=3)
-        
-        # Assert
-        self.assertEqual(len(limited_events), 3)
+            e = BaseEvent(event_name=f"Event{i}", source="test-service",
+                          data={"index": i}, microservice="test-service", functionality="fn")
+            asyncio.run(self.event_store.save_event(e))
+
+        limited = asyncio.run(self.event_store.get_events_by_source("test-service", limit=3))
+        self.assertEqual(len(limited), 3)
 
 
 class TestJsonFileEventStore(BaseTestCase):
@@ -357,21 +299,16 @@ class TestJsonFileEventStore(BaseTestCase):
         # Use in-memory file path for testing
         self.event_store = JsonFileEventStore("test_events.json")
     
-    async def test_save_event_to_file(self):
+    def test_save_event_to_file(self):
         """Test: Save event to JSON file"""
-        # Arrange
+        import asyncio
         event = BaseEvent(
-            event_name="FileTestEvent",
-            source="file-service",
-            data={"file": "test"},
-            microservice="file-service",
-            functionality="file-operation"
+            event_name="FileTestEvent", source="file-service",
+            data={"file": "test"}, microservice="file-service", functionality="file-operation",
         )
-        
-        # Act & Assert - Should not raise exception
         try:
-            await self.event_store.save_event(event)
-            self.assertTrue(True)  # No exception raised
+            asyncio.run(self.event_store.save_event(event))
+            self.assertTrue(True)
         except Exception as e:
             self.fail(f"Failed to save event to file: {e}")
 
@@ -472,77 +409,40 @@ class TestApplicationServiceWithEvents(BaseTestCase):
     
     def setUp(self):
         super().setUp()
-        self.repository = MockRepository(TestEntity)
+        self.repository = MockRepository(SampleEntity)
         
         # Mock event bus
         self.event_bus = Mock()
         self.event_bus.publish = AsyncMock()
         
-        self.service = TestApplicationService(self.repository, self.event_bus)
+        self.service = SampleApplicationService(self.repository, self.event_bus)
     
-    async def test_create_entity_success_publishes_events(self):
+    def test_create_entity_success_publishes_events(self):
         """Test: Successful entity creation publishes domain and integration events"""
-        # Arrange
-        entity_data = {
-            "id": "1",
-            "name": "Test Entity",
-            "email": "test@example.com",
-            "age": 25
-        }
-        
-        # Act
-        entity = await self.service.create_entity(entity_data)
-        
-        # Assert entity creation
+        import asyncio
+        entity_data = {"id": "1", "name": "Test Entity", "email": "test@example.com", "age": 25}
+        entity = asyncio.run(self.service.create_entity(entity_data))
         self.assertEqual(entity.name, "Test Entity")
-        self.assertEqual(entity.email, "test@example.com")
-        
-        # Assert events were published
-        self.assertEqual(self.event_bus.publish.call_count, 2)  # Domain + Integration events
-        
-        # Verify event types
-        published_calls = self.event_bus.publish.call_args_list
-        domain_event = published_calls[0][0][0]  # First call, first argument
-        integration_event = published_calls[1][0][0]  # Second call, first argument
-        
-        self.assertEqual(domain_event.event_name, "EntityCreated")
-        self.assertEqual(integration_event.event_name, "EntityRegistrationCompleted")
-    
-    async def test_validation_failure_no_events_published(self):
+        self.assertEqual(self.event_bus.publish.call_count, 2)
+        calls = self.event_bus.publish.call_args_list
+        self.assertEqual(calls[0][0][0].event_name, "EntityCreated")
+        self.assertEqual(calls[1][0][0].event_name, "EntityRegistrationCompleted")
+
+    def test_validation_failure_no_events_published(self):
         """Test: Validation failure doesn't publish events"""
-        # Arrange
-        entity_data = {
-            "id": "1",
-            "name": "Minor Entity",
-            "email": "minor@example.com",
-            "age": 16  # Under 18
-        }
-        
-        # Act & Assert
+        import asyncio
+        entity_data = {"id": "1", "name": "Minor", "email": "minor@example.com", "age": 16}
         with self.assertRaises(ValidationException):
-            await self.service.create_entity(entity_data)
-        
-        # Verify no events were published
+            asyncio.run(self.service.create_entity(entity_data))
         self.event_bus.publish.assert_not_called()
-    
-    async def test_conflict_failure_no_events_published(self):
+
+    def test_conflict_failure_no_events_published(self):
         """Test: Resource conflict doesn't publish events"""
-        # Arrange - Create existing entity
-        existing_entity = TestEntity("1", "Existing", "test@example.com", 30)
-        self.repository.seed_data([existing_entity])
-        
-        entity_data = {
-            "id": "2",
-            "name": "New Entity",
-            "email": "test@example.com",  # Duplicate email
-            "age": 25
-        }
-        
-        # Act & Assert
+        import asyncio
+        self.repository.seed_data([SampleEntity("1", "Existing", "test@example.com", 30)])
+        entity_data = {"id": "2", "name": "New", "email": "test@example.com", "age": 25}
         with self.assertRaises(ResourceConflictException):
-            await self.service.create_entity(entity_data)
-        
-        # Verify no events were published
+            asyncio.run(self.service.create_entity(entity_data))
         self.event_bus.publish.assert_not_called()
 
 
@@ -554,7 +454,7 @@ class TestEventDrivenApplicationFlow(BaseTestCase):
     def setUp(self):
         super().setUp()
         self.event_store = InMemoryEventStore()
-        self.repository = MockRepository(TestEntity)
+        self.repository = MockRepository(SampleEntity)
         
         # Real event bus mock that stores events
         class TestEventBus:
@@ -568,39 +468,23 @@ class TestEventDrivenApplicationFlow(BaseTestCase):
                 self.published_events.append(event)
         
         self.event_bus = TestEventBus(self.event_store)
-        self.service = TestApplicationService(self.repository, self.event_bus)
+        self.service = SampleApplicationService(self.repository, self.event_bus)
     
-    async def test_complete_event_driven_flow(self):
+    def test_complete_event_driven_flow(self):
         """Test: Complete flow from entity creation to event persistence"""
-        # Arrange
-        entity_data = {
-            "id": "flow-test",
-            "name": "Flow Test Entity",
-            "email": "flow@example.com",
-            "age": 28
-        }
-        
-        # Act
-        entity = await self.service.create_entity(entity_data)
-        
-        # Assert entity creation
+        import asyncio
+        entity_data = {"id": "flow-test", "name": "Flow Test Entity",
+                       "email": "flow@example.com", "age": 28}
+        entity = asyncio.run(self.service.create_entity(entity_data))
         self.assertEqual(entity.name, "Flow Test Entity")
-        
-        # Assert events were published and stored
         self.assertEqual(len(self.event_bus.published_events), 2)
-        
-        # Verify events in store
-        stored_events = await self.event_store.get_events_by_source("test-service")
-        self.assertEqual(len(stored_events), 2)
-        
-        # Verify event types
-        event_names = [event.event_name for event in stored_events]
-        self.assertIn("EntityCreated", event_names)
-        self.assertIn("EntityRegistrationCompleted", event_names)
-        
-        # Verify event status
-        for event in stored_events:
-            self.assertEqual(event.status, "published")
+        stored = asyncio.run(self.event_store.get_events_by_source("test-service"))
+        self.assertEqual(len(stored), 2)
+        names = [e.event_name for e in stored]
+        self.assertIn("EntityCreated", names)
+        self.assertIn("EntityRegistrationCompleted", names)
+        for e in stored:
+            self.assertEqual(e.status, "published")
 
 
 # === RUN TESTS ===

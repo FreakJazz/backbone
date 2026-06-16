@@ -2,7 +2,6 @@
 package logging
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -56,9 +55,10 @@ type StructuredLogger struct {
 	output      io.Writer
 	level       LogLevel
 	environment string
+	formatter   Formatter
 }
 
-// NewLogger creates a new structured logger
+// NewLogger creates a new structured logger with JSON formatter (production default).
 func NewLogger(service string) *StructuredLogger {
 	return &StructuredLogger{
 		service:     service,
@@ -66,10 +66,11 @@ func NewLogger(service string) *StructuredLogger {
 		output:      os.Stdout,
 		level:       LevelInfo,
 		environment: getEnv("ENVIRONMENT", "development"),
+		formatter:   &JSONFormatter{},
 	}
 }
 
-// NewLoggerWithConfig creates a logger with custom configuration
+// NewLoggerWithConfig creates a logger with custom configuration.
 func NewLoggerWithConfig(service, component, layer string, level LogLevel) *StructuredLogger {
 	return &StructuredLogger{
 		service:     service,
@@ -79,7 +80,13 @@ func NewLoggerWithConfig(service, component, layer string, level LogLevel) *Stru
 		output:      os.Stdout,
 		level:       level,
 		environment: getEnv("ENVIRONMENT", "development"),
+		formatter:   &JSONFormatter{},
 	}
+}
+
+// SetFormatter sets a custom formatter (JSONFormatter, ConsoleFormatter, CompactJSONFormatter).
+func (l *StructuredLogger) SetFormatter(f Formatter) {
+	l.formatter = f
 }
 
 // SetOutput sets the output writer
@@ -110,6 +117,7 @@ func (l *StructuredLogger) WithContext(ctx map[string]interface{}) Logger {
 		output:      l.output,
 		level:       l.level,
 		environment: l.environment,
+		formatter:   l.formatter,
 	}
 }
 
@@ -173,14 +181,11 @@ func (l *StructuredLogger) log(level LogLevel, message string, extra map[string]
 		entry.UserID = userID
 	}
 
-	// Serialize to JSON
-	bytes, err := json.Marshal(entry)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to serialize log entry: %v\n", err)
-		return
+	f := l.formatter
+	if f == nil {
+		f = &JSONFormatter{}
 	}
-
-	fmt.Fprintln(l.output, string(bytes))
+	fmt.Fprintln(l.output, f.Format(entry))
 }
 
 // shouldLog checks if the log level should be logged

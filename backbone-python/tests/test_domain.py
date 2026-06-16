@@ -32,7 +32,7 @@ from backbone import (
 
 # === MOCK ENTITIES FOR TESTING ===
 
-class TestUser:
+class SampleUser:
     """Test entity for domain testing"""
     def __init__(self, id: str, name: str, email: str, age: int, is_active: bool = True):
         self.id = id
@@ -143,10 +143,10 @@ class TestSpecificationPattern(BaseTestCase):
     def setUp(self):
         super().setUp()
         self.users = [
-            TestUser("1", "Alice", "alice@example.com", 25, True),
-            TestUser("2", "Bob", "bob@example.com", 30, True),
-            TestUser("3", "Charlie", "charlie@example.com", 35, False),
-            TestUser("4", "Diana", "diana@example.com", 28, True),
+            SampleUser("1", "Alice", "alice@example.com", 25, True),
+            SampleUser("2", "Bob", "bob@example.com", 30, True),
+            SampleUser("3", "Charlie", "charlie@example.com", 35, False),
+            SampleUser("4", "Diana", "diana@example.com", 28, True),
         ]
     
     def test_equal_specification(self):
@@ -206,7 +206,7 @@ class TestSpecificationPattern(BaseTestCase):
     def test_is_null_specification(self):
         """Test: IsNullSpecification detects None values"""
         # Arrange
-        user_with_none = TestUser("5", "Eve", None, 25, True)
+        user_with_none = SampleUser("5", "Eve", None, 25, True)
         test_users = self.users + [user_with_none]
         spec = IsNullSpecification("email")
         
@@ -306,15 +306,15 @@ class TestFilterParser(BaseTestCase):
         # Assert
         self.assertIsInstance(spec, EqualSpecification)
         # Test with mock entity
-        user = TestUser("1", "Alice", "alice@example.com", 25)
+        user = SampleUser("1", "Alice", "alice@example.com", 25)
         self.assertTrue(spec.is_satisfied_by(user))
     
     def test_parse_comparison_operators(self):
         """Test: Parse different comparison operators"""
         # Test greater than
         spec_gt = self.parser.parse_filters({"age__gt": "25"})
-        user_30 = TestUser("1", "Bob", "bob@example.com", 30)
-        user_20 = TestUser("2", "Alice", "alice@example.com", 20)
+        user_30 = SampleUser("1", "Bob", "bob@example.com", 30)
+        user_20 = SampleUser("2", "Alice", "alice@example.com", 20)
         
         self.assertTrue(spec_gt.is_satisfied_by(user_30))
         self.assertFalse(spec_gt.is_satisfied_by(user_20))
@@ -333,9 +333,9 @@ class TestFilterParser(BaseTestCase):
         spec = self.parser.parse_filters(query_params)
         
         # Assert
-        alice = TestUser("1", "Alice", "alice@example.com", 25)
-        bob = TestUser("2", "Bob", "bob@example.com", 30)
-        diana = TestUser("3", "Diana", "diana@example.com", 28)
+        alice = SampleUser("1", "Alice", "alice@example.com", 25)
+        bob = SampleUser("2", "Bob", "bob@example.com", 30)
+        diana = SampleUser("3", "Diana", "diana@example.com", 28)
         
         self.assertTrue(spec.is_satisfied_by(alice))
         self.assertTrue(spec.is_satisfied_by(bob))
@@ -350,9 +350,9 @@ class TestFilterParser(BaseTestCase):
         spec = self.parser.parse_filters(query_params)
         
         # Assert
-        user_30 = TestUser("1", "Bob", "bob@example.com", 30)  # Should match
-        user_20 = TestUser("2", "Alice", "alice@example.com", 20)  # Should not match
-        user_40 = TestUser("3", "Charlie", "charlie@example.com", 40)  # Should not match
+        user_30 = SampleUser("1", "Bob", "bob@example.com", 30)  # Should match
+        user_20 = SampleUser("2", "Alice", "alice@example.com", 20)  # Should not match
+        user_40 = SampleUser("3", "Charlie", "charlie@example.com", 40)  # Should not match
         
         self.assertTrue(spec.is_satisfied_by(user_30))
         self.assertFalse(spec.is_satisfied_by(user_20))
@@ -370,9 +370,9 @@ class TestFilterParser(BaseTestCase):
         spec = self.parser.parse_filters(query_params)
         
         # Assert
-        active_adult = TestUser("1", "Bob", "bob@example.com", 30, True)  # Should match
-        inactive_adult = TestUser("2", "Charlie", "charlie@example.com", 35, False)  # Should not match
-        active_minor = TestUser("3", "Alice", "alice@example.com", 20, True)  # Should not match
+        active_adult = SampleUser("1", "Bob", "bob@example.com", 30, True)  # Should match
+        inactive_adult = SampleUser("2", "Charlie", "charlie@example.com", 35, False)  # Should not match
+        active_minor = SampleUser("3", "Alice", "alice@example.com", 20, True)  # Should not match
         
         self.assertTrue(spec.is_satisfied_by(active_adult))
         self.assertFalse(spec.is_satisfied_by(inactive_adult))

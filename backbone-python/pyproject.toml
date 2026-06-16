@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "backbone"
-version = "1.0.0"
+version = "0.1.0"
 description = "Clean Architecture Framework with Event-Driven Microservices for Python"
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,7 +28,7 @@ keywords = [
 ]
 
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
@@ -134,6 +134,7 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
+    "--import-mode=importlib",
     "--cov=backbone",
     "--cov-report=term-missing",
     "--cov-report=html",

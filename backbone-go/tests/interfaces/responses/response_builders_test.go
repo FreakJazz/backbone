@@ -92,20 +92,17 @@ func TestErrorResponseBuilder_NotFound_WithCode(t *testing.T) {
 	assert.Equal(t, 130000003, resp.ErrorCode)
 }
 
-func TestErrorResponseBuilder_ValidationError_WithFieldErrors(t *testing.T) {
-	fields := map[string]string{"name": "required", "price": "must be > 0"}
+func TestErrorResponseBuilder_ValidationError_WithRID(t *testing.T) {
 	resp := responses.ErrorResponseBuilder.ValidationError("Invalid input",
-		responses.ErrorOpts{RID: "rid-x", FieldErrors: fields})
+		responses.ErrorOpts{RID: "rid-x"})
 
 	assert.Equal(t, 400, resp.StatusCode)
-	assert.Equal(t, fields, resp.FieldErrors)
 	assert.Equal(t, "rid-x", resp.RID)
 }
 
-func TestErrorResponseBuilder_ValidationError_NoFields(t *testing.T) {
+func TestErrorResponseBuilder_ValidationError_NoOpts(t *testing.T) {
 	resp := responses.ErrorResponseBuilder.ValidationError("Bad request")
 	assert.Equal(t, 400, resp.StatusCode)
-	assert.Nil(t, resp.FieldErrors)
 	assert.NotEmpty(t, resp.RID)
 }
 

@@ -43,8 +43,24 @@ Usage example:
 For more information: https://github.com/backbone/backbone
 """
 
+# === Bootstrap: register this directory as the 'backbone' package so that
+# relative imports work even when pytest imports this file directly. ===
+import sys as _sys, os as _os, types as _types
+
+_here = _os.path.dirname(_os.path.abspath(__file__))
+if "backbone" not in _sys.modules:
+    _stub = _types.ModuleType("backbone")
+    _stub.__file__ = __file__
+    _stub.__path__ = [_here]
+    _stub.__package__ = "backbone"
+    _sys.modules["backbone"] = _stub
+if not __package__:  # imported without package context (e.g. pytest setup)
+    __package__ = "backbone"    # type: ignore[assignment]
+
+del _sys, _os, _types, _here
+
 # Framework version
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 __author__ = "Backbone Framework Team"
 __license__ = "MIT"
 

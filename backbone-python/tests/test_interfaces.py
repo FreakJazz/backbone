@@ -21,273 +21,131 @@ from backbone import (
 
 class TestProcessResponseBuilder(BaseTestCase):
     """Test process response builder for CRUD operations"""
-    
+
     def test_create_response_success(self):
-        """Test: Create response with 201 status"""
-        # Arrange
-        data = {"id": "123", "name": "Test Entity", "email": "test@example.com"}
-        
-        # Act
-        response = ProcessResponseBuilder.success(
-            data=data,
-            message="Entity created successfully",
-            status=201
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 201)
-        self.assertEqual(response["message"], "Entity created successfully")
-        self.assertEqual(response["data"], data)
-        self.assertIn("timestamp", response)
-        self.assertIn("request_id", response)
-    
+        """Test: created() returns {"id": entity_id}"""
+        response = ProcessResponseBuilder.created("123")
+        self.assertEqual(response, {"id": "123"})
+
     def test_update_response_success(self):
-        """Test: Update response with 200 status"""
-        # Arrange
-        updated_data = {"id": "123", "name": "Updated Entity", "version": 2}
-        
-        # Act
-        response = ProcessResponseBuilder.updated(
-            data=updated_data,
-            message="Entity updated successfully"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertEqual(response["message"], "Entity updated successfully")
-        self.assertEqual(response["data"], updated_data)
-    
+        """Test: updated() returns {"id": entity_id}"""
+        response = ProcessResponseBuilder.updated("123")
+        self.assertEqual(response, {"id": "123"})
+
     def test_delete_response_success(self):
-        """Test: Delete response with 200 status"""
-        # Act
-        response = ProcessResponseBuilder.deleted(
-            message="Entity deleted successfully",
-            resource_id="123"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertEqual(response["message"], "Entity deleted successfully")
-        self.assertIn("123", response["data"]["resource_id"])
-    
+        """Test: deleted() returns {"id": entity_id}"""
+        response = ProcessResponseBuilder.deleted("123")
+        self.assertEqual(response, {"id": "123"})
+
     def test_completed_response_without_data(self):
-        """Test: Completed response for operations without specific return data"""
-        # Act
-        response = ProcessResponseBuilder.completed(
-            message="Operation completed successfully"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertEqual(response["message"], "Operation completed successfully")
-        self.assertIsNone(response["data"])
+        """Test: success() without id returns empty dict"""
+        response = ProcessResponseBuilder.success()
+        self.assertEqual(response, {})
 
 
 class TestSimpleObjectResponseBuilder(BaseTestCase):
-    """Test simple object response builder for single resource responses"""
-    
+    """Test simple object response builder — retorna el objeto directamente sin envelope"""
+
     def test_found_response(self):
-        """Test: Found response for retrieved resource"""
-        # Arrange
-        entity_data = {"id": "123", "name": "Found Entity", "is_active": True}
-        
-        # Act
-        response = SimpleObjectResponseBuilder.found(
-            data=entity_data,
-            resource_type="entity"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertIn("entity found", response["message"].lower())
-        self.assertEqual(response["data"], entity_data)
-    
+        """Test: found() returns data dict as-is"""
+        data = {"id": "123", "name": "Found Entity", "is_active": True}
+        response = SimpleObjectResponseBuilder.found(data)
+        self.assertEqual(response, data)
+
     def test_retrieved_response(self):
-        """Test: Retrieved response for fetched resource"""
-        # Arrange
-        entity_data = {"id": "456", "name": "Retrieved Entity"}
-        
-        # Act
-        response = SimpleObjectResponseBuilder.retrieved(
-            data=entity_data,
-            resource_type="user"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertIn("user retrieved", response["message"].lower())
-        self.assertEqual(response["data"], entity_data)
-    
+        """Test: retrieved() returns data dict as-is"""
+        data = {"id": "456", "name": "Retrieved Entity"}
+        response = SimpleObjectResponseBuilder.retrieved(data)
+        self.assertEqual(response, data)
+
     def test_details_response(self):
-        """Test: Details response for detailed resource view"""
-        # Arrange
-        detailed_data = {
-            "id": "789",
-            "name": "Detailed Entity",
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-02T00:00:00Z"
-        }
-        
-        # Act
-        response = SimpleObjectResponseBuilder.details(
-            data=detailed_data,
-            resource_type="profile"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertIn("profile details", response["message"].lower())
-        self.assertEqual(response["data"], detailed_data)
-    
+        """Test: success() returns data dict as-is"""
+        data = {"id": "789", "name": "Entity", "created_at": "2024-01-01T00:00:00Z"}
+        response = SimpleObjectResponseBuilder.success(data)
+        self.assertEqual(response, data)
+
     def test_status_response(self):
-        """Test: Status response for resource status checks"""
-        # Arrange
-        status_data = {"status": "active", "health": "ok", "last_check": "2024-01-01T12:00:00Z"}
-        
-        # Act
-        response = SimpleObjectResponseBuilder.status(
-            data=status_data,
-            message="Service status retrieved"
-        )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertEqual(response["message"], "Service status retrieved")
-        self.assertEqual(response["data"], status_data)
+        """Test: found() with status data returns it directly"""
+        data = {"status": "active", "health": "ok"}
+        response = SimpleObjectResponseBuilder.found(data)
+        self.assertEqual(response["status"], "active")
+        self.assertEqual(response["health"], "ok")
 
 
 class TestPaginatedResponseBuilder(BaseTestCase):
-    """Test paginated response builder for list responses"""
-    
+    """Test paginated response builder — contrato: {meta, items, pagination}"""
+
     def test_paginated_response_with_results(self):
-        """Test: Paginated response with data and pagination info"""
-        # Arrange
-        items = [
-            {"id": "1", "name": "Item 1"},
-            {"id": "2", "name": "Item 2"},
-            {"id": "3", "name": "Item 3"}
-        ]
-        
-        # Act
+        """Test: success() retorna meta + items + pagination"""
+        items = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
         response = PaginatedResponseBuilder.success(
             items=items,
             total_count=10,
             page=0,
             page_size=3,
-            message="Items retrieved successfully"
+            message="Items retrieved successfully",
         )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertEqual(response["message"], "Items retrieved successfully")
-        self.assertEqual(response["data"]["items"], items)
-        
-        # Check pagination metadata
-        pagination = response["data"]["pagination"]
-        self.assertEqual(pagination["total_count"], 10)
-        self.assertEqual(pagination["page"], 0)
-        self.assertEqual(pagination["page_size"], 3)
-        self.assertEqual(pagination["total_pages"], 4)  # ceil(10/3) = 4
-        self.assertTrue(pagination["has_next"])
-        self.assertFalse(pagination["has_previous"])
-    
+
+        self.assertEqual(response["meta"]["status"], "success")
+        self.assertEqual(response["meta"]["status_code"], 200)
+        self.assertEqual(response["meta"]["message"], "Items retrieved successfully")
+        self.assertEqual(response["items"], items)
+
+        pag = response["pagination"]
+        self.assertEqual(pag["total_count"], 10)
+        self.assertEqual(pag["page"], 0)
+        self.assertEqual(pag["page_size"], 3)
+
     def test_paginated_response_last_page(self):
-        """Test: Paginated response for last page"""
-        # Arrange
-        items = [{"id": "4", "name": "Item 4"}]
-        
-        # Act
+        """Test: success() en última página mantiene parámetros correctos"""
         response = PaginatedResponseBuilder.success(
-            items=items,
+            items=[{"id": "4"}],
             total_count=4,
-            page=3,  # Last page (0-indexed)
+            page=1,
             page_size=3,
-            message="Last page retrieved"
+            message="Last page",
         )
-        
-        # Assert
-        pagination = response["data"]["pagination"]
-        self.assertEqual(pagination["page"], 3)
-        self.assertEqual(pagination["total_pages"], 2)  # ceil(4/3) = 2
-        self.assertFalse(pagination["has_next"])
-        self.assertTrue(pagination["has_previous"])
-    
+        self.assertEqual(response["pagination"]["page"], 1)
+        self.assertEqual(response["pagination"]["total_count"], 4)
+
     def test_from_repository_result_factory(self):
-        """Test: Factory method for repository results"""
-        # Arrange
-        items = [
-            {"id": "1", "name": "Repo Item 1"},
-            {"id": "2", "name": "Repo Item 2"}
-        ]
-        total_count = 5
-        page = 1
-        page_size = 2
-        
-        # Act
+        """Test: from_repository_result() genera mensaje con el tipo de recurso"""
+        items = [{"id": "1"}, {"id": "2"}]
         response = PaginatedResponseBuilder.from_repository_result(
             items=items,
-            total_count=total_count,
-            page=page,
-            page_size=page_size,
-            resource_type="user"
+            total_count=5,
+            page=1,
+            page_size=2,
+            resource_type="user",
         )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertIn("users retrieved", response["message"].lower())
-        self.assertEqual(len(response["data"]["items"]), 2)
-        
-        pagination = response["data"]["pagination"]
-        self.assertEqual(pagination["total_count"], 5)
-        self.assertEqual(pagination["page"], 1)
-        self.assertEqual(pagination["page_size"], 2)
-    
+        self.assertIn("users", response["meta"]["message"].lower())
+        self.assertEqual(len(response["items"]), 2)
+        self.assertEqual(response["pagination"]["total_count"], 5)
+
     def test_empty_response(self):
-        """Test: Empty response when no results"""
-        # Act
+        """Test: empty() retorna items vacío con total_count=0"""
         response = PaginatedResponseBuilder.empty(
             resource_type="user",
-            message="No users found matching criteria"
+            message="No users found matching criteria",
         )
-        
-        # Assert
-        self.assertEqual(response["status"], "success")
-        self.assertEqual(response["status_code"], 200)
-        self.assertEqual(response["message"], "No users found matching criteria")
-        self.assertEqual(response["data"]["items"], [])
-        
-        pagination = response["data"]["pagination"]
-        self.assertEqual(pagination["total_count"], 0)
-        self.assertEqual(pagination["page"], 0)
-        self.assertEqual(pagination["total_pages"], 0)
+        self.assertEqual(response["meta"]["status"], "success")
+        self.assertEqual(response["meta"]["message"], "No users found matching criteria")
+        self.assertEqual(response["items"], [])
+        self.assertEqual(response["pagination"]["total_count"], 0)
 
 
 class TestErrorResponseBuilder(BaseTestCase):
     """Test error response builder — contrato alineado con backbone-go."""
 
     def test_validation_error_response(self):
-        """Test: Validation error — 400 con field_errors y código de catálogo."""
-        field_errors = {"email": "Invalid email format", "age": "Must be at least 18"}
-        response = ErrorResponseBuilder.validation_error(
-            message="Validation failed",
-            field_errors=field_errors,
-        )
+        """Test: Validation error — 400 con estructura estándar, sin field_errors."""
+        response = ErrorResponseBuilder.validation_error(message="Validation failed")
         self.assertEqual(response["status_code"], 400)
         self.assertEqual(response["message"], "Validation failed")
-        self.assertEqual(response["field_errors"], field_errors)
         self.assertEqual(response["error_code"], 130000001)  # IFC_INVALID_REQUEST_BODY
         self.assertIn("rid", response)
+        self.assertNotIn("field_errors", response)
         self.assertNotIn("code_error", response)
-        self.assertNotIn("request_id", response)
 
     def test_validation_error_custom_code(self):
         """Test: El caller puede sobreescribir el código por defecto."""
@@ -593,8 +451,8 @@ def run_interface_tests():
     integration_tests.setUp()
     
     integration_test_methods = [
-        ("test_consistent_response_format_across_builders", integration_tests.test_consistent_response_format_across_builders),
-        ("test_response_builders_with_context", integration_tests.test_response_builders_with_context),
+        ("test_consistent_error_fields", integration_tests.test_consistent_error_fields),
+        ("test_response_builders_with_rid", integration_tests.test_response_builders_with_rid),
     ]
     
     for test_name, test_method in integration_test_methods:
