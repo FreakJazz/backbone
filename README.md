@@ -229,7 +229,19 @@ GET /api/v1/products
   &page=1&page_size=10&sort_by=price:desc
 ```
 
-Supported operators: `eq` `ne` `gt` `gte` `lt` `lte` `contains` `in` `between` `is_null` `is_not_null`
+| Operator | Example | Behavior |
+|----------|---------|----------|
+| `eq` | `name,eq,Alice` | Exact match |
+| `ne` | `status,ne,inactive` | Not equal |
+| `gt` / `gte` | `age,gt,18` | Greater than / or equal |
+| `lt` / `lte` | `price,lte,100` | Less than / or equal |
+| `contains` | `name,contains,lap` | Substring match — backbone automatically wraps with `%...%` for SQL compatibility |
+| `in` | `status,in,active\|pending` | Value in list (pipe-separated) |
+| `between` | `price,between,10\|500` | Range (pipe-separated min/max) |
+| `is_null` | `deleted_at,is_null` | NULL check (no value needed) |
+| `is_not_null` | `updated_at,is_not_null` | NOT NULL check (no value needed) |
+
+> **Key Point on `contains`**: Pass clean values — backbone automatically handles `%` wrapping internally. No manual wrapping needed in your application code.
 
 **Python:**
 ```python

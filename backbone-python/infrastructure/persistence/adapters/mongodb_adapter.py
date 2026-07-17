@@ -108,9 +108,11 @@ class MongoDBSpecificationTranslator:
         elif operator == "gte":
             return {field: {"$gte": value}}
         elif operator == "like":
-            # Usar regex para LIKE
-            pattern = re.escape(str(value))
-            return {field: {"$regex": pattern, "$options": "i"}}
+            # Convert SQL LIKE pattern (with %) to MongoDB regex
+            # Pattern is already wrapped with % by LikeSpecification
+            # %pattern% -> .*pattern.*
+            regex_pattern = str(value).replace("%", ".*")
+            return {field: {"$regex": regex_pattern, "$options": "i"}}
         elif operator == "in":
             return {field: {"$in": value}}
         elif operator == "between":

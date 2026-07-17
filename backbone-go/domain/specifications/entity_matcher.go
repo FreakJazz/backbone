@@ -126,11 +126,13 @@ func (s *LessThanOrEqualSpecification) IsSatisfiedBy(entity interface{}) bool {
 }
 
 // IsSatisfiedBy for Like (substring match, case-insensitive).
+// Pattern is expected to already be wrapped with % by NewLikeSpecification
 func (s *LikeSpecification) IsSatisfiedBy(entity interface{}) bool {
 	val, ok := fieldValue(entity, s.field)
 	if !ok {
 		return false
 	}
+	// Remove % from pattern for substring matching
 	pattern := strings.ToLower(strings.Trim(s.pattern, "%"))
 	return strings.Contains(strings.ToLower(reflect.ValueOf(val).String()), pattern)
 }
@@ -167,4 +169,3 @@ func (s *IsNullSpecification) IsSatisfiedBy(entity interface{}) bool {
 	v := reflect.ValueOf(val)
 	return !v.IsValid() || (v.Kind() == reflect.Ptr && v.IsNil())
 }
-

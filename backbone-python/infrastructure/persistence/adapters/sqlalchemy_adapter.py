@@ -105,7 +105,8 @@ class SQLAlchemySpecificationTranslator:
         elif operator == "gte":
             return column >= value
         elif operator == "like":
-            return column.ilike(f"%{value}%")
+            # Pattern is already wrapped with % by LikeSpecification
+            return column.ilike(value)
         elif operator == "in":
             return column.in_(value)
         elif operator == "between":

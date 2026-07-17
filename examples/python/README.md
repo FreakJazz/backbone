@@ -23,3 +23,18 @@ python main.py
 | `PATCH` | `/api/v1/products/{id}/status` | `{"id": "uuid"}` |
 
 For curl examples and filter operators see the [root README](../../README.md).
+
+## Filter Operators
+
+| Operator | Description |
+|----------|-------------|
+| `eq` | equals |
+| `ne` | not equals |
+| `gt` / `gte` | greater than / or equal |
+| `lt` / `lte` | less than / or equal |
+| `contains` | substring match (backbone automatically wraps with `%...%`) |
+| `in` | value in list (pipe-separated: `val1\|val2`) |
+| `between` | range (pipe-separated: `min\|max`) |
+| `is_null` / `is_not_null` | null checks |
+
+> **Note on `contains`**: Pass the value **without `%` symbols** — the backbone automatically wraps it for substring matching. Example: `filters=name,contains,laptop` ✓

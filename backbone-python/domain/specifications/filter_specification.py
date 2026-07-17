@@ -117,15 +117,23 @@ class GreaterThanOrEqualSpecification(FilterSpecification):
 
 
 class LikeSpecification(FilterSpecification):
-    """Especificación LIKE: field LIKE '%value%'"""
+    """Especificación LIKE: field LIKE '%value%' - pattern is automatically wrapped"""
     
     def __init__(self, field: str, value: str):
-        super().__init__(field, "like", value)
+        # Wrap pattern with % unless already wrapped
+        wrapped_value = value
+        if not value.startswith("%"):
+            wrapped_value = "%" + wrapped_value
+        if not wrapped_value.endswith("%"):
+            wrapped_value = wrapped_value + "%"
+        super().__init__(field, "like", wrapped_value)
     
     def _compare_values(self, field_value: Any, filter_value: Any) -> bool:
         if field_value is None:
             return False
-        return str(filter_value).lower() in str(field_value).lower()
+        # Remove % from pattern for substring matching
+        pattern = str(filter_value).strip("%")
+        return pattern.lower() in str(field_value).lower()
 
 
 class InSpecification(FilterSpecification):

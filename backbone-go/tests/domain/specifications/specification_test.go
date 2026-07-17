@@ -54,12 +54,25 @@ func TestInSpecification(t *testing.T) {
 }
 
 func TestLikeSpecification(t *testing.T) {
+	// NewLikeSpecification automatically wraps the pattern with %
+	spec := specifications.NewLikeSpecification("email", "@example.com")
+
+	sql, args := spec.ToSQL()
+
+	assert.Equal(t, "email LIKE ?", sql)
+	// Pattern should be wrapped with % for substring matching
+	assert.Equal(t, []interface{}{"%@example.com%"}, args)
+}
+
+func TestLikeSpecificationWithPartialPattern(t *testing.T) {
+	// When pattern is already partially wrapped, no duplication
 	spec := specifications.NewLikeSpecification("email", "%@example.com")
 
 	sql, args := spec.ToSQL()
 
 	assert.Equal(t, "email LIKE ?", sql)
-	assert.Equal(t, []interface{}{"%@example.com"}, args)
+	// Missing trailing %, should be added
+	assert.Equal(t, []interface{}{"%@example.com%"}, args)
 }
 
 func TestBetweenSpecification(t *testing.T) {

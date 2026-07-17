@@ -218,7 +218,15 @@ type LikeSpecification struct {
 }
 
 // NewLikeSpecification creates a LIKE specification
+// Automatically wraps the pattern with % unless already wrapped
 func NewLikeSpecification(field, pattern string) *LikeSpecification {
+	// Wrap pattern with % unless already wrapped
+	if !strings.HasPrefix(pattern, "%") {
+		pattern = "%" + pattern
+	}
+	if !strings.HasSuffix(pattern, "%") {
+		pattern = pattern + "%"
+	}
 	return &LikeSpecification{
 		field:   field,
 		pattern: pattern,

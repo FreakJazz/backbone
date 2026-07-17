@@ -55,10 +55,12 @@ Format per token: `field,operator,value[,condition]`
 | `ne` | not equals |
 | `gt` / `gte` | greater than / or equal |
 | `lt` / `lte` | less than / or equal |
-| `contains` | substring match |
+| `contains` | substring match (backbone automatically wraps with `%...%`) |
 | `in` | value in list (comma-separated) |
 | `between` | range `min\|max` |
 | `is_null` / `is_not_null` | null checks |
+
+> **Note on `contains`**: Pass the value **without `%` symbols** — the backbone automatically wraps it for substring matching across all persistence layers (in-memory, SQL, MongoDB). Example: `filters=name,contains,laptop` ✓ (NOT `%laptop%`)
 
 Condition (`and` / `or`) joins this filter with the next one. Omit on the last filter.
 
