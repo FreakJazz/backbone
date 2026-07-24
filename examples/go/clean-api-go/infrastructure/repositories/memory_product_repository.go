@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/freakjazz/backbone-go/domain/specifications"
+	"github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 	"github.com/freakjazz/clean-api-go/domain/entities"
 	domainrepos "github.com/freakjazz/clean-api-go/domain/repositories"
 )

@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 
-	"github.com/freakjazz/backbone-go/domain/specifications"
+	"github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 	"github.com/freakjazz/clean-api-go/domain/entities"
 )
 

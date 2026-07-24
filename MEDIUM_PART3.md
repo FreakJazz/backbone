@@ -73,7 +73,7 @@ backbone ships three formatters in both languages:
 ### Creating a logger
 
 ```go
-import "github.com/freakjazz/backbone-go/infrastructure/logging"
+import "github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 
 // Production default — full JSON for ELK
 logger := logging.NewLogger("orders-service")
@@ -112,7 +112,7 @@ logger.Error("payment failed", map[string]interface{}{
 The `EnhancedLogger` adds fluent methods to bind a logger to a specific layer, component, and method. Every log call from that logger automatically includes those fields.
 
 ```go
-import "github.com/freakjazz/backbone-go/infrastructure/logging"
+import "github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 
 // Create once per handler — all logs from this instance carry layer, component, method
 logger := logging.NewEnhancedLogger("orders-service").
@@ -343,7 +343,7 @@ You could build this alerting without backbone — but you would have to maintai
 
 ```bash
 # Go
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 
 # Python
 pip install backbone-python==0.1.0

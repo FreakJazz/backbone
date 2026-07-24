@@ -56,7 +56,7 @@ The full catalogue:
 
 **Go:**
 ```go
-import bberrors "github.com/freakjazz/backbone-go/errors"
+import bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 
 bberrors.AppConflict.Int()              // 120000006
 bberrors.IfcInvalidRequestBody.Int()    // 130000001
@@ -118,8 +118,8 @@ GET list returns meta, items, and pagination:
 
 ```go
 import (
-    "github.com/freakjazz/backbone-go/interfaces/responses"
-    bberrors "github.com/freakjazz/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 )
 
 // In your HTTP handler after a use-case conflict:
@@ -243,7 +243,7 @@ Three formatters ship out of the box:
 
 **Go:**
 ```go
-import "github.com/freakjazz/backbone-go/infrastructure/logging"
+import "github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 
 logger := logging.NewLogger("products-service")
 
@@ -302,7 +302,7 @@ Supported operators: `eq` `ne` `gt` `gte` `lt` `lte` `contains` `in` `between` `
 
 **Go:**
 ```go
-import "github.com/freakjazz/backbone-go/domain/specifications"
+import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 
 // In your query handler:
 sortField, sortDir := specifications.ParseSortBy(r.URL.Query().Get("sort_by"))
@@ -385,7 +385,7 @@ Both examples implement the same CRUD API for products — create, update, chang
 
 ```bash
 # Go
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 
 # Python
 pip install backbone-python==0.1.0

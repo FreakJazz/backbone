@@ -5,7 +5,7 @@ package responses
 import (
 	"strings"
 
-	bberrors "github.com/freakjazz/backbone-go/errors"
+	bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 	"github.com/google/uuid"
 )
 

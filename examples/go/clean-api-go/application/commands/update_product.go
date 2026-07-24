@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	bberrors "github.com/freakjazz/backbone-go/errors"
-	bbex "github.com/freakjazz/backbone-go/interfaces/responses"
-	"github.com/freakjazz/backbone-go/infrastructure/logging"
+	bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
+	bbex "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
+	"github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 	"github.com/freakjazz/clean-api-go/domain/repositories"
 )
 

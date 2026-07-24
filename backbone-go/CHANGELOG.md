@@ -107,4 +107,4 @@ Key differences:
 
 ---
 
-For more information, visit: https://github.com/freakjazz/backbone-go
+For more information, visit: https://github.com/FreakJazz/backbone/backbone-go

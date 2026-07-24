@@ -1,7 +1,7 @@
 package specifications
 
 import (
-	"github.com/freakjazz/backbone-go/domain/specifications"
+	"github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 )
 
 var ValidSortFields = map[string]bool{

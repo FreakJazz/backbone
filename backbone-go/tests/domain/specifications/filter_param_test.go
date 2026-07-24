@@ -3,7 +3,7 @@ package specifications_test
 import (
 	"testing"
 
-	"github.com/freakjazz/backbone-go/domain/specifications"
+	"github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

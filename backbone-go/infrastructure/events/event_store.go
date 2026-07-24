@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/freakjazz/backbone-go/domain/ports"
+	"github.com/FreakJazz/backbone/backbone-go/domain/ports"
 )
 
 // FileEventStore implements EventStore using JSON files

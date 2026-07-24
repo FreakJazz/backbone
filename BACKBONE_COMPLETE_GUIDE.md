@@ -55,7 +55,7 @@ This document explains how.
 
 ```bash
 # Go
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 
 # Python
 pip install backbone-python==0.1.0
@@ -77,8 +77,8 @@ Every error has exactly four fields:
 **Go:**
 ```go
 import (
-    bberrors "github.com/freakjazz/backbone-go/errors"
-    "github.com/freakjazz/backbone-go/interfaces/responses"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
 )
 
 e := responses.ErrorResponseBuilder.Conflict("already exists",
@@ -353,7 +353,7 @@ def create_product():
 ### Go: Using Error Codes
 
 ```go
-import bberrors "github.com/freakjazz/backbone-go/errors"
+import bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 
 type ErrorCode int
 
@@ -677,7 +677,7 @@ The `rid` from the error response is the exact string that appears in every log 
 ### Go: Create Enhanced Logger
 
 ```go
-import "github.com/freakjazz/backbone-go/infrastructure/logging"
+import "github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 
 logger := logging.NewEnhancedLogger("orders-service").
     WithLayer("application").
@@ -1086,7 +1086,7 @@ A: Only when you need to change response schema. New error codes don't require v
 
 ```bash
 # Go
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 
 # Python
 pip install backbone-python==0.1.0

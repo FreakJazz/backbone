@@ -99,8 +99,8 @@ import (
     "regexp"
     "strings"
 
-    "github.com/freakjazz/backbone-go/errors"
-    "github.com/freakjazz/backbone-go/interfaces/responses"
+    "github.com/FreakJazz/backbone/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
     "your-app/application/commands"
 )
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	domainExceptions "github.com/freakjazz/backbone-go/domain/exceptions"
+	domainExceptions "github.com/FreakJazz/backbone/backbone-go/domain/exceptions"
 )
 
 // ApplicationException represents application layer exceptions (10xxxxxx)

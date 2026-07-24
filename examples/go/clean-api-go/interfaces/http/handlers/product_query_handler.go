@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/freakjazz/backbone-go/interfaces/responses"
+	"github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
 	"github.com/freakjazz/clean-api-go/application/queries"
 )
 

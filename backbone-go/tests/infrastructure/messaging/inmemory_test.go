@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freakjazz/backbone-go/domain/ports"
-	"github.com/freakjazz/backbone-go/infrastructure/logging"
-	"github.com/freakjazz/backbone-go/infrastructure/messaging"
+	"github.com/FreakJazz/backbone/backbone-go/domain/ports"
+	"github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
+	"github.com/FreakJazz/backbone/backbone-go/infrastructure/messaging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/freakjazz/backbone-go/infrastructure/logging"
+	"github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

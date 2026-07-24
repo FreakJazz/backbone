@@ -18,7 +18,7 @@ In a microservices ecosystem every team invents its own error shape, log format,
 ## Installation
 
 ```bash
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 ```
 
 **Requirements:** Go 1.21+
@@ -62,7 +62,7 @@ Every error carries a **9-digit code** prefixed by the originating layer — `LL
 | `14`   | Infrastructure | `140000001` |
 
 ```go
-import bberrors "github.com/freakjazz/backbone-go/errors"
+import bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 
 // Domain
 bberrors.DomainBusinessRuleViolation.Int()  // 110000001
@@ -99,8 +99,8 @@ All responses follow a strict contract — **no surprise fields**.
 
 ```go
 import (
-    "github.com/freakjazz/backbone-go/interfaces/responses"
-    bberrors "github.com/freakjazz/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 )
 
 // 400 Bad Request
@@ -150,7 +150,7 @@ list := responses.PaginatedResponseBuilder.Found(items, meta, pagination)
 Three formatters ship out of the box — swap without touching your log calls.
 
 ```go
-import "github.com/freakjazz/backbone-go/infrastructure/logging"
+import "github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 
 // Production default: JSON lines for ELK / Loki / CloudWatch
 logger := logging.NewLogger("products-service")
@@ -204,7 +204,7 @@ Four generic query params — no hard-coded field names in your router.
 Supported operators: `eq` `ne` `gt` `gte` `lt` `lte` `contains` `in` `between` `is_null` `is_not_null`
 
 ```go
-import "github.com/freakjazz/backbone-go/domain/specifications"
+import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 
 sortField, sortDir := specifications.ParseSortBy(r.URL.Query().Get("sort_by"))
 criteria := specifications.ParseFilterParams(
@@ -232,8 +232,8 @@ GET /api/v1/products
 
 ```go
 import (
-    "github.com/freakjazz/backbone-go/domain/ports"
-    "github.com/freakjazz/backbone-go/infrastructure/messaging"
+    "github.com/FreakJazz/backbone/backbone-go/domain/ports"
+    "github.com/FreakJazz/backbone/backbone-go/infrastructure/messaging"
 )
 
 bus := messaging.NewInMemoryEventBus()

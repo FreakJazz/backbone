@@ -16,7 +16,7 @@ Both implementations share **identical JSON contracts** — the same error shape
 | | Python | Go |
 |---|---|---|
 | Folder | [`backbone-python/`](./backbone-python/README.md) | [`backbone-go/`](./backbone-go/README.md) |
-| Install | `pip install backbone-python==0.1.0` | `go get github.com/freakjazz/backbone-go@v0.1.0` |
+| Install | `pip install backbone-python==0.1.0` | `go get github.com/FreakJazz/backbone/backbone-go@v0.1.0` |
 | Tests | 94 passed | 8 packages, all green |
 | Example | [`examples/python/clean_api_python/`](./examples/python/clean_api_python/) | [`examples/go/clean-api-go/`](./examples/go/clean-api-go/) |
 
@@ -122,7 +122,7 @@ ErrorCodes.INFRA_DB_FAILURE             # 140000001
 
 **Go:**
 ```go
-import bberrors "github.com/freakjazz/backbone-go/errors"
+import bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 bberrors.AppConflict.Int()              // 120000006
 bberrors.IfcInvalidRequestBody.Int()    // 130000001
 bberrors.InfraDBFailure.Int()           // 140000001
@@ -157,8 +157,8 @@ PaginatedResponseBuilder.found(items, meta, pagination)
 **Go:**
 ```go
 import (
-    "github.com/freakjazz/backbone-go/interfaces/responses"
-    bberrors "github.com/freakjazz/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 )
 
 // Errors
@@ -191,7 +191,7 @@ logger.info("processing request", extra_data={"order_id": "123"}, request_id=rid
 
 **Go:**
 ```go
-import "github.com/freakjazz/backbone-go/infrastructure/logging"
+import "github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 
 logger := logging.NewLogger("my-service")
 logger.SetFormatter(logging.NewConsoleFormatter()) // dev
@@ -254,7 +254,7 @@ products = repo.find_by_criteria(criteria, page=1, page_size=10)
 
 **Go:**
 ```go
-import "github.com/freakjazz/backbone-go/domain/specifications"
+import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 
 sortField, sortDir := specifications.ParseSortBy(r.URL.Query().Get("sort_by"))
 criteria := specifications.ParseFilterParams(r.URL.Query()["filters"], page, pageSize, sortField, sortDir)

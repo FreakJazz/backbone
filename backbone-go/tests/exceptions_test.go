@@ -4,8 +4,8 @@ package backbone_test
 import (
 	"testing"
 
-	appEx "github.com/freakjazz/backbone-go/application/exceptions"
-	domEx "github.com/freakjazz/backbone-go/domain/exceptions"
+	appEx "github.com/FreakJazz/backbone/backbone-go/application/exceptions"
+	domEx "github.com/FreakJazz/backbone/backbone-go/domain/exceptions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

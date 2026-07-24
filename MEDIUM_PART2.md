@@ -117,7 +117,7 @@ The parser converts URL params into this object automatically. Your repository r
 ### Parsing URL params into a Criteria
 
 ```go
-import "github.com/freakjazz/backbone-go/domain/specifications"
+import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 
 func (h *GetProductsQueryHandler) Handle(ctx context.Context, q GetProductsQuery) (*GetProductsResult, error) {
     // Parse sort_by: "price:desc" → ("price", "desc")
@@ -149,7 +149,7 @@ func (h *GetProductsQueryHandler) Handle(ctx context.Context, q GetProductsQuery
 ### Building criteria manually for domain logic
 
 ```go
-import "github.com/freakjazz/backbone-go/domain/specifications"
+import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
 
 // Business rule: find all active premium products for restock alert
 criteria := specifications.NewCriteriaBuilder().
@@ -369,7 +369,7 @@ Error code `130000005` = `IFC_INVALID_FILTER_FORMAT`. The monitoring alert fires
 
 ```bash
 # Go
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 
 # Python
 pip install backbone-python==0.1.0

@@ -1,4 +1,4 @@
-module github.com/freakjazz/backbone-go
+module github.com/FreakJazz/backbone/backbone-go
 
 go 1.21
 

@@ -154,8 +154,8 @@ Using the codes in a command handler:
 
 ```go
 import (
-    bberrors "github.com/freakjazz/backbone-go/errors"
-    "github.com/freakjazz/backbone-go/interfaces/responses"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
 )
 
 func (h *CreateProductCommandHandler) Handle(ctx context.Context, cmd CreateProductCommand) (*Result, error) {
@@ -430,7 +430,7 @@ backbone codes start at sequence `1` in each layer. Your service can define its 
 
 **Go:**
 ```go
-import bberrors "github.com/freakjazz/backbone-go/errors"
+import bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 
 // Your service-specific codes — will never clash with backbone's 1-99 range
 var (
@@ -468,7 +468,7 @@ When every service in your platform uses this system:
 
 ```bash
 # Go
-go get github.com/freakjazz/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
 
 # Python
 pip install backbone-python==0.1.0

@@ -3,7 +3,7 @@ package responses_test
 import (
 	"testing"
 
-	"github.com/freakjazz/backbone-go/interfaces/responses"
+	"github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

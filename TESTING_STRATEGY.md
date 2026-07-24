@@ -304,7 +304,7 @@ import (
     "context"
     "testing"
 
-    bberrors "github.com/freakjazz/backbone-go/errors"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
     "your-app/application/commands"
     "your-app/domain"
     "your-app/infrastructure"
@@ -493,8 +493,8 @@ import (
 
     "your-app/application/commands"
     "your-app/infrastructure"
-    bberrors "github.com/freakjazz/backbone-go/errors"
-    "github.com/freakjazz/backbone-go/interfaces/responses"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
+    "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
 )
 
 func TestCreateProductHandler_RIDPropagation(t *testing.T) {
@@ -1019,7 +1019,7 @@ import (
 
     "your-app/application/commands"
     "your-app/infrastructure"
-    bberrors "github.com/freakjazz/backbone-go/errors"
+    bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 )
 
 func TestCreateAndGetProduct_FullFlow(t *testing.T) {
@@ -1172,7 +1172,7 @@ class TestProductFlow:
 
 **Go:**
 ```bash
-go get github.com/freakjazz/backbone-go/testing
+go get github.com/FreakJazz/backbone/backbone-go/testing
 ```
 
 **Python:**

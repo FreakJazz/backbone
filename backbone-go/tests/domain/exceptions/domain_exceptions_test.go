@@ -3,7 +3,7 @@ package exceptions_test
 import (
 	"testing"
 
-	"github.com/freakjazz/backbone-go/domain/exceptions"
+	"github.com/FreakJazz/backbone/backbone-go/domain/exceptions"
 	"github.com/stretchr/testify/assert"
 )
 

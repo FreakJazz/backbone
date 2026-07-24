@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/freakjazz/backbone-go/domain/ports"
-	"github.com/freakjazz/backbone-go/infrastructure/logging"
+	"github.com/FreakJazz/backbone/backbone-go/domain/ports"
+	"github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
 	"github.com/segmentio/kafka-go"
 )
 

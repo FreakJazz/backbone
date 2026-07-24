@@ -3,7 +3,7 @@ module github.com/freakjazz/clean-api-go
 go 1.21
 
 require (
-	github.com/freakjazz/backbone-go v0.0.0
+	github.com/FreakJazz/backbone/backbone-go v0.0.0
 	github.com/google/uuid v1.5.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
@@ -24,4 +24,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/freakjazz/backbone-go => ../../../backbone-go
+replace github.com/FreakJazz/backbone/backbone-go => ../../../backbone-go
