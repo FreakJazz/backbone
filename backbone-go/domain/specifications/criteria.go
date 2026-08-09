@@ -28,9 +28,18 @@ func NewSortCriteria(field string, direction SortDirection) *SortCriteria {
 	}
 }
 
-// ToSQL converts sort criteria to SQL ORDER BY clause
+// ToSQL converts sort criteria to SQL ORDER BY clause. An unsafe field name
+// is dropped rather than interpolated, since ORDER BY has no placeholder
+// mechanism for identifiers.
 func (s *SortCriteria) ToSQL() string {
-	return fmt.Sprintf("%s %s", s.Field, s.Direction)
+	if !isSafeIdentifier(s.Field) {
+		return ""
+	}
+	direction := s.Direction
+	if direction != SortAscending && direction != SortDescending {
+		direction = SortAscending
+	}
+	return fmt.Sprintf("%s %s", s.Field, direction)
 }
 
 // Criteria represents query criteria combining filters, sorting, and pagination
@@ -72,10 +81,24 @@ func (c *Criteria) WithOffset(offset int) *Criteria {
 	return c
 }
 
-// WithPagination sets limit and offset for pagination
+// MaxPageSize caps how many rows a single query can request, regardless of
+// what a client asks for via page_size, to prevent unbounded/DoS-style scans.
+const MaxPageSize = 100
+
+// DefaultPageSize is used when pageSize is not a positive number.
+const DefaultPageSize = 10
+
+// WithPagination sets limit and offset for pagination. pageSize is clamped
+// to the range [1, MaxPageSize].
 func (c *Criteria) WithPagination(page, pageSize int) *Criteria {
 	if page < 1 {
 		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = DefaultPageSize
+	}
+	if pageSize > MaxPageSize {
+		pageSize = MaxPageSize
 	}
 	c.Limit = pageSize
 	c.Offset = (page - 1) * pageSize
@@ -89,11 +112,13 @@ func (c *Criteria) ToSQL() (whereClause string, args []interface{}, orderBy stri
 		whereClause, args = c.Specification.ToSQL()
 	}
 
-	// ORDER BY clause
+	// ORDER BY clause (invalid/unsafe field names are silently dropped)
 	if len(c.Sorts) > 0 {
-		sortParts := make([]string, len(c.Sorts))
-		for i, sort := range c.Sorts {
-			sortParts[i] = sort.ToSQL()
+		sortParts := make([]string, 0, len(c.Sorts))
+		for _, sort := range c.Sorts {
+			if part := sort.ToSQL(); part != "" {
+				sortParts = append(sortParts, part)
+			}
 		}
 		orderBy = strings.Join(sortParts, ", ")
 	}

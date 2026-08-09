@@ -466,12 +466,14 @@ When every service in your platform uses this system:
 
 ## Install
 
+Not yet published to pkg.go.dev / PyPI — install straight from source until `v0.1.0` is tagged:
+
 ```bash
 # Go
-go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@main
 
 # Python
-pip install backbone-python==0.1.0
+pip install "backbone @ git+https://github.com/FreakJazz/backbone.git#subdirectory=backbone-python"
 ```
 
 Source and examples: [github.com/FreakJazz/backbone](https://github.com/FreakJazz/backbone)

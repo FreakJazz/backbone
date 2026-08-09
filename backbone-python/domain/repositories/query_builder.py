@@ -113,17 +113,28 @@ class QueryBuilder:
         })
         return self
     
+    MAX_PAGE_SIZE = 100
+    DEFAULT_PAGE_SIZE = 10
+
     def paginate(self, page: int, page_size: int) -> 'QueryBuilder':
         """
-        Configura paginación.
-        
+        Configura paginación. page_size se limita al rango [1, MAX_PAGE_SIZE]
+        para evitar que un cliente solicite un page_size arbitrariamente
+        grande (denegación de servicio vía escaneos masivos).
+
         Args:
             page: Página actual (0-indexed)
             page_size: Elementos por página
-            
+
         Returns:
             Self para method chaining
         """
+        if page < 0:
+            page = 0
+        if page_size < 1:
+            page_size = self.DEFAULT_PAGE_SIZE
+        if page_size > self.MAX_PAGE_SIZE:
+            page_size = self.MAX_PAGE_SIZE
         self._offset = page * page_size
         self._limit = page_size
         return self

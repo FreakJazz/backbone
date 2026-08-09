@@ -32,9 +32,15 @@ type BaseSpecification struct {
 	value    interface{}
 }
 
-// ToSQL converts to SQL WHERE clause
+// ToSQL converts to SQL WHERE clause. If the field name is not a safe SQL
+// identifier, the clause degrades to an always-false condition instead of
+// interpolating untrusted input into the query.
 func (s *BaseSpecification) ToSQL() (string, []interface{}) {
-	return fmt.Sprintf("%s %s ?", s.field, s.operator), []interface{}{s.value}
+	field, ok := sqlIdentifierOrFalse(s.field)
+	if !ok {
+		return field, nil
+	}
+	return fmt.Sprintf("%s %s ?", field, s.operator), []interface{}{s.value}
 }
 
 // IsSatisfiedBy evaluates the specification against an entity using its operator.
@@ -188,11 +194,15 @@ func NewInSpecification(field string, values []interface{}) *InSpecification {
 
 // ToSQL converts to SQL
 func (s *InSpecification) ToSQL() (string, []interface{}) {
+	field, ok := sqlIdentifierOrFalse(s.field)
+	if !ok {
+		return field, nil
+	}
 	placeholders := make([]string, len(s.values))
 	for i := range s.values {
 		placeholders[i] = "?"
 	}
-	sql := fmt.Sprintf("%s IN (%s)", s.field, strings.Join(placeholders, ", "))
+	sql := fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", "))
 	return sql, s.values
 }
 
@@ -235,7 +245,11 @@ func NewLikeSpecification(field, pattern string) *LikeSpecification {
 
 // ToSQL converts to SQL
 func (s *LikeSpecification) ToSQL() (string, []interface{}) {
-	return fmt.Sprintf("%s LIKE ?", s.field), []interface{}{s.pattern}
+	field, ok := sqlIdentifierOrFalse(s.field)
+	if !ok {
+		return field, nil
+	}
+	return fmt.Sprintf("%s LIKE ?", field), []interface{}{s.pattern}
 }
 
 // And combines specifications
@@ -271,7 +285,11 @@ func NewBetweenSpecification(field string, min, max interface{}) *BetweenSpecifi
 
 // ToSQL converts to SQL
 func (s *BetweenSpecification) ToSQL() (string, []interface{}) {
-	return fmt.Sprintf("%s BETWEEN ? AND ?", s.field), []interface{}{s.min, s.max}
+	field, ok := sqlIdentifierOrFalse(s.field)
+	if !ok {
+		return field, nil
+	}
+	return fmt.Sprintf("%s BETWEEN ? AND ?", field), []interface{}{s.min, s.max}
 }
 
 // And combines specifications
@@ -301,7 +319,11 @@ func NewIsNullSpecification(field string) *IsNullSpecification {
 
 // ToSQL converts to SQL
 func (s *IsNullSpecification) ToSQL() (string, []interface{}) {
-	return fmt.Sprintf("%s IS NULL", s.field), []interface{}{}
+	field, ok := sqlIdentifierOrFalse(s.field)
+	if !ok {
+		return field, nil
+	}
+	return fmt.Sprintf("%s IS NULL", field), []interface{}{}
 }
 
 // And combines specifications

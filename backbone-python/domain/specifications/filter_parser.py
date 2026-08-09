@@ -1,10 +1,17 @@
 """
 Filter Parser - Parser para filtros dinámicos desde query parameters
 """
+import re
 from typing import List, Dict, Any, Optional, Union
 from .filter_specification import SpecificationFactory, FilterSpecification
 from .base_specification import Specification, T
 from ..exceptions.domain_exceptions import InvalidValueObjectException
+
+# A field name must look like a plain identifier (optionally table-qualified).
+# Anything else (spaces, quotes, semicolons, SQL comment markers, ...) is
+# rejected before it can reach a query-builder/adapter that might interpolate
+# it into a raw query string.
+_FIELD_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
 
 class FilterParser:
@@ -21,9 +28,17 @@ class FilterParser:
     - Dict simple: {"name": "Alice", "age__gt": "25"}
     """
     
-    def __init__(self):
+    def __init__(self, allowed_fields: Optional[List[str]] = None):
+        """
+        Args:
+            allowed_fields: Optional allowlist of filterable field names. When
+                provided, any filter referencing a field outside this list is
+                rejected with InvalidValueObjectException. Strongly
+                recommended for any endpoint exposed to untrusted clients.
+        """
         self.supported_operators = SpecificationFactory.supported_operators()
         self.supported_connectors = ["and", "or"]
+        self.allowed_fields = allowed_fields
         # Map Django-style operators to internal operators
         self.operator_mapping = {
             "gt": "gt",
@@ -90,7 +105,9 @@ class FilterParser:
             else:
                 field = field_expr
                 operator = "eq"  # Default to equality
-            
+
+            self._validate_field(field)
+
             # Map operator if needed
             if operator in self.operator_mapping:
                 operator = self.operator_mapping[operator]
@@ -174,7 +191,9 @@ class FilterParser:
         operator = parts[1].strip().lower()
         value_str = parts[2].strip()
         connector = parts[3].strip().lower() if len(parts) > 3 else None
-        
+
+        self._validate_field(field)
+
         # Validar operador
         if operator not in self.supported_operators:
             raise InvalidValueObjectException(
@@ -300,6 +319,24 @@ class FilterParser:
         
         return result
     
+    def _validate_field(self, field: str) -> None:
+        """
+        Validates a field name before it is used to build a specification.
+
+        Always enforces that the field looks like a safe SQL identifier
+        (defends adapters that build raw query strings from the field name).
+        Additionally enforces self.allowed_fields when it was configured.
+        """
+        if not _FIELD_NAME_PATTERN.match(field):
+            raise InvalidValueObjectException(
+                message=f"Nombre de campo inválido: '{field}'",
+                value_object_type="FilterField",
+                invalid_value=field,
+                code=11003012
+            )
+        if self.allowed_fields is not None:
+            self.validate_filter_field(field, self.allowed_fields)
+
     def validate_filter_field(self, field: str, allowed_fields: List[str]) -> bool:
         """
         Valida que el campo esté en la lista de campos permitidos.
