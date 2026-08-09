@@ -197,7 +197,7 @@ func (h *ProductCommandHandler) CreateProduct(w http.ResponseWriter, r *http.Req
             e = responses.ErrorResponseBuilder.ValidationError(appErr.Message,
                 responses.ErrorOpts{Code: appErr.Code.Int()})
         default:
-            e = responses.ErrorResponseBuilder.InternalError(appErr.Message)
+            e = responses.ErrorResponseBuilder.InternalServerError(appErr.Message)
         }
 
         w.Header().Set("Content-Type", "application/json")
@@ -311,7 +311,7 @@ def create_product():
         return jsonify(err), 400
 
     except ResourceConflictException as e:
-        err = ErrorResponseBuilder.conflict(e.message, error_code=e.code)
+        err = ErrorResponseBuilder.conflict_error(e.message, error_code=e.code)
         return jsonify(err), 409
 ```
 
@@ -361,7 +361,7 @@ e := responses.ErrorResponseBuilder.Conflict("already exists",
 **Python:**
 ```python
 rid = request.headers.get("X-Request-ID")
-e = ErrorResponseBuilder.conflict(
+e = ErrorResponseBuilder.conflict_error(
     "already exists",
     rid=rid,
     error_code=ErrorCodes.APP_CONFLICT)

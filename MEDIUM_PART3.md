@@ -243,8 +243,8 @@ from backbone import LogContext
 @app.before_request
 def inject_request_context():
     rid = request.headers.get("X-Request-ID") or str(uuid.uuid4())
-    LogContext.set("request_id", rid)
-    LogContext.set("user_id", getattr(g, "user_id", None))
+    LogContext.set_request_id(rid)
+    LogContext.set_user_id(getattr(g, "user_id", None))
 
 # In any handler, repository, or service — logger picks up rid automatically
 class CreateOrderCommandHandler:

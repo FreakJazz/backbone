@@ -182,7 +182,7 @@ func (h *ProductQueryHandler) GetProducts(w http.ResponseWriter, r *http.Request
 
     result, err := h.getProductsHandler.Handle(r.Context(), query)
     if err != nil {
-        e := responses.ErrorResponseBuilder.InternalError(err.Error())
+        e := responses.ErrorResponseBuilder.InternalServerError(err.Error())
         json.NewEncoder(w).Encode(e)
         return
     }
@@ -199,7 +199,8 @@ func (h *ProductQueryHandler) GetProducts(w http.ResponseWriter, r *http.Request
 ### Parsing URL params into a specification
 
 ```python
-from backbone import FilterParser, SortParser, SortDirection
+from backbone import FilterParser, SortDirection
+from backbone.domain.specifications.sort_specification import SortParser
 
 class GetProductsQueryHandler:
     def handle(self, query):
@@ -251,7 +252,8 @@ spec = FilterParser().parse_filters({
 ### Receiving params in the Flask route
 
 ```python
-from backbone import FilterParser, SortParser, ErrorResponseBuilder, PaginatedResponseBuilder
+from backbone import FilterParser, ErrorResponseBuilder, PaginatedResponseBuilder
+from backbone.domain.specifications.sort_specification import SortParser
 from backbone.errors import ErrorCodes
 
 @bp.route("/products", methods=["GET"])
@@ -269,7 +271,7 @@ def get_products():
             result.products, result.meta, result.pagination)), 200
 
     except Exception as e:
-        err = ErrorResponseBuilder.internal_error(str(e))
+        err = ErrorResponseBuilder.internal_server_error(str(e))
         return jsonify(err), 500
 ```
 
