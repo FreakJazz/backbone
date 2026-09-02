@@ -3,7 +3,7 @@ from typing import Optional
 from backbone.domain.specifications import FilterParser, Specification, SortDirection
 
 
-VALID_SORT_FIELDS = {"name", "price", "category", "status"}
+VALID_SORT_FIELDS = {"name", "price", "category", "status", "stock", "created_at"}
 
 
 def parse_product_filters(raw_filters: list) -> Optional[Specification]:

@@ -43,7 +43,7 @@ func (h *ProductCommandHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, errResp := h.create.Handle(r.Context(), commands.CreateProductCommand{
-		Name: body.Name, Price: body.Price, Category: body.Category, Description: body.Description,
+		Name: body.Name, Price: body.Price, Category: body.Category, Description: body.Description, Stock: body.Stock,
 	})
 	if errResp != nil {
 		writeError(w, *errResp)
@@ -144,6 +144,7 @@ type CreateProductRequest struct {
 	Price       float64 `json:"price"       example:"999.99"`
 	Category    string  `json:"category"    example:"Electronics"`
 	Description string  `json:"description" example:"High-performance laptop"`
+	Stock       int     `json:"stock"       example:"25"`
 }
 
 type UpdateProductRequest struct {

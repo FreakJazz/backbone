@@ -49,8 +49,14 @@ type simpleObjectResponseBuilder struct{}
 // SimpleObjectResponseBuilder is the singleton instance.
 var SimpleObjectResponseBuilder = &simpleObjectResponseBuilder{}
 
-// Found returns the data map as-is.
-func (b *simpleObjectResponseBuilder) Found(data map[string]interface{}) map[string]interface{} {
+// Found returns data as-is. Accepts any JSON-marshalable value — a
+// map[string]interface{} (the common case when a repository builds one for
+// wire-shape control) or a tagged struct/slice, so callers that already
+// have a typed value don't have to build a map just to satisfy this
+// signature. json.Marshal handles either identically; a tagged struct is
+// also cheaper to marshal since encoding/json skips the key-sort step a
+// map forces.
+func (b *simpleObjectResponseBuilder) Found(data any) any {
 	return data
 }
 
@@ -80,10 +86,19 @@ type PaginationInfo struct {
 }
 
 // PaginatedResponse is the full paginated response body.
+//
+// Items is `any` rather than []map[string]interface{} on purpose: Go has no
+// generic methods (a type parameter can't be added to a method on a
+// non-generic receiver like the paginatedResponseBuilder singleton below),
+// so a slice-typed field is the only way to let callers pass a typed slice
+// — []*Product, []Sale, whatever — straight through to json.Marshal
+// instead of building a []map[string]interface{} first. Marshaling a
+// tagged struct is also cheaper than a map: encoding/json sorts map keys
+// before writing them, a cost a struct's fixed field order never pays.
 type PaginatedResponse struct {
-	Meta       PaginatedMeta            `json:"meta"`
-	Items      []map[string]interface{} `json:"items"`
-	Pagination PaginationInfo           `json:"pagination"`
+	Meta       PaginatedMeta  `json:"meta"`
+	Items      any            `json:"items"`
+	Pagination PaginationInfo `json:"pagination"`
 }
 
 type paginatedResponseBuilder struct{}
@@ -91,9 +106,11 @@ type paginatedResponseBuilder struct{}
 // PaginatedResponseBuilder is the singleton instance.
 var PaginatedResponseBuilder = &paginatedResponseBuilder{}
 
-// Success builds a paginated response.
+// Success builds a paginated response. items may be any slice —
+// []map[string]interface{} still works for existing callers, but a typed
+// slice ([]*Product, []Sale, ...) works too and marshals faster.
 func (b *paginatedResponseBuilder) Success(
-	items []map[string]interface{},
+	items any,
 	totalCount, page, pageSize int,
 	message string,
 ) PaginatedResponse {
@@ -118,6 +135,64 @@ func (b *paginatedResponseBuilder) Success(
 // Empty builds an empty paginated response.
 func (b *paginatedResponseBuilder) Empty(message string) PaginatedResponse {
 	return b.Success(nil, 0, 0, 0, message)
+}
+
+// ---------------------------------------------------------------------------
+// CursorPaginatedResponseBuilder — GET list, keyset ("cursor") pagination
+// Returns:
+//
+//	{
+//	  "meta":  {"status": "success", "status_code": 200, "message": "..."},
+//	  "items": [{}, ...],
+//	  "page":  {"next_cursor": "opaque-token", "has_more": true}
+//	}
+//
+// Use this instead of PaginatedResponseBuilder when the caller queried by
+// cursor (specifications.EncodeCursor/DecodeCursor) rather than page/
+// page_size: a keyset window has no meaningful "page number", and a real
+// total_count would need a separate COUNT query that defeats the point of
+// avoiding OFFSET in the first place. This only reports what a keyset
+// query already produces for free — whether there's more, and the token
+// to fetch it.
+// ---------------------------------------------------------------------------
+
+// CursorPage is the pagination section of a cursor-paginated response.
+type CursorPage struct {
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore    bool   `json:"has_more"`
+}
+
+// CursorPaginatedResponse is the full cursor-paginated response body.
+type CursorPaginatedResponse struct {
+	Meta  PaginatedMeta `json:"meta"`
+	Items any           `json:"items"`
+	Page  CursorPage    `json:"page"`
+}
+
+type cursorPaginatedResponseBuilder struct{}
+
+// CursorPaginatedResponseBuilder is the singleton instance.
+var CursorPaginatedResponseBuilder = &cursorPaginatedResponseBuilder{}
+
+// Success builds a cursor-paginated response. nextCursor is "" when this is
+// the last page (HasMore is derived from it, not passed separately, so the
+// two can never disagree).
+func (b *cursorPaginatedResponseBuilder) Success(items any, nextCursor string, message string) CursorPaginatedResponse {
+	if items == nil {
+		items = []map[string]interface{}{}
+	}
+	return CursorPaginatedResponse{
+		Meta: PaginatedMeta{
+			Status:     "success",
+			StatusCode: 200,
+			Message:    message,
+		},
+		Items: items,
+		Page: CursorPage{
+			NextCursor: nextCursor,
+			HasMore:    nextCursor != "",
+		},
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ type CreateProductCommand struct {
 	Price       float64
 	Category    string
 	Description string
+	Stock       int
 }
 
 type CreateProductCommandHandler struct {
@@ -26,12 +27,12 @@ type CreateProductCommandHandler struct {
 func NewCreateProductCommandHandler(repo repositories.IProductRepository) *CreateProductCommandHandler {
 	return &CreateProductCommandHandler{
 		repo:   repo,
-		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("CreateProductCommandHandler"),
+		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("CreateProductCommandHandler").WithMethod("Handle"),
 	}
 }
 
 func (h *CreateProductCommandHandler) Handle(ctx context.Context, cmd CreateProductCommand) (string, *bbex.ErrorResponse) {
-	log := h.logger.WithMethod("Handle")
+	log := h.logger
 
 	name := strings.TrimSpace(cmd.Name)
 	if len(name) < 2 {
@@ -50,6 +51,12 @@ func (h *CreateProductCommandHandler) Handle(ctx context.Context, cmd CreateProd
 		return "", &e
 	}
 
+	if cmd.Stock < 0 {
+		e := bbex.ErrorResponseBuilder.ValidationError("stock cannot be negative",
+			bbex.ErrorOpts{Code: bberrors.IfcInvalidRequestBody.Int()})
+		return "", &e
+	}
+
 	existing, _ := h.repo.FindByName(ctx, name)
 	if existing != nil {
 		log.Warning("Duplicate product name", map[string]interface{}{"name": name})
@@ -59,6 +66,7 @@ func (h *CreateProductCommandHandler) Handle(ctx context.Context, cmd CreateProd
 	}
 
 	product := entities.NewProduct(name, cmd.Price, cmd.Category, cmd.Description)
+	product.Stock = cmd.Stock
 	saved, err := h.repo.Save(ctx, product)
 	if err != nil {
 		log.ErrorWithCode("Save failed", bberrors.InfraDBFailure.Int(), map[string]interface{}{"error": err.Error()})

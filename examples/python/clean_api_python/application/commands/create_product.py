@@ -14,6 +14,7 @@ class CreateProductCommand:
     price: float
     category: str
     description: Optional[str] = None
+    stock: int = 0
 
 
 class CreateProductCommandHandler:
@@ -36,6 +37,11 @@ class CreateProductCommandHandler:
                 "category is required",
                 code=ErrorCodes.APP_VALIDATION_FAILURE,
             )
+        if cmd.stock < 0:
+            raise ValidationException(
+                "stock cannot be negative",
+                code=ErrorCodes.APP_VALIDATION_FAILURE,
+            )
 
         existing = self._repo.find_by_name(cmd.name)
         if existing:
@@ -52,6 +58,7 @@ class CreateProductCommandHandler:
             price=cmd.price,
             category=cmd.category,
             description=cmd.description,
+            stock=cmd.stock,
         )
         saved = self._repo.save(product)
         return saved.id

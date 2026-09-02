@@ -24,6 +24,7 @@ from .filter_specification import (
 )
 from .filter_parser import FilterParser
 from .sort_specification import SortSpecification, SortDirection, MultipleSortSpecification, SortParser
+from .cursor import encode_cursor, decode_cursor
 
 __all__ = [
     "Specification",
@@ -48,4 +49,6 @@ __all__ = [
     "SortDirection",
     "MultipleSortSpecification",
     "SortParser",
+    "encode_cursor",
+    "decode_cursor",
 ]

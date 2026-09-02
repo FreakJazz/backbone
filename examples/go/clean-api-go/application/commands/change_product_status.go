@@ -24,12 +24,12 @@ type ChangeProductStatusCommandHandler struct {
 func NewChangeProductStatusCommandHandler(repo repositories.IProductRepository) *ChangeProductStatusCommandHandler {
 	return &ChangeProductStatusCommandHandler{
 		repo:   repo,
-		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("ChangeProductStatusCommandHandler"),
+		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("ChangeProductStatusCommandHandler").WithMethod("Handle"),
 	}
 }
 
 func (h *ChangeProductStatusCommandHandler) Handle(ctx context.Context, cmd ChangeProductStatusCommand) (string, *bbex.ErrorResponse) {
-	log := h.logger.WithMethod("Handle")
+	log := h.logger
 
 	if !validStatuses[cmd.Status] {
 		e := bbex.ErrorResponseBuilder.ValidationError("status must be one of: active, inactive, discontinued",

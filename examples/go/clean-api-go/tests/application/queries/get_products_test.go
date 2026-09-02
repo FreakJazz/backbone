@@ -93,8 +93,8 @@ func TestGetProducts_SortByPriceDesc(t *testing.T) {
 	if len(items) < 2 {
 		t.Fatal("expected multiple items")
 	}
-	first := items[0]["price"].(float64)
-	second := items[1]["price"].(float64)
+	first := items[0].Price
+	second := items[1].Price
 	if first < second {
 		t.Fatalf("expected descending price: first=%.2f second=%.2f", first, second)
 	}

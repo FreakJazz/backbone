@@ -24,6 +24,9 @@ definitions:
       price:
         example: 999.99
         type: number
+      stock:
+        example: 25
+        type: integer
     type: object
   handlers.ErrorResponse:
     properties:
@@ -39,6 +42,34 @@ definitions:
       status_code:
         example: 400
         type: integer
+    type: object
+  handlers.RegisterSaleRequest:
+    properties:
+      product_id:
+        example: a99ec39f-6a2b-4c05-883d-1973f511b325
+        type: string
+      quantity:
+        example: 2
+        type: integer
+    type: object
+  handlers.RegisterStockMovementRequest:
+    properties:
+      product_id:
+        example: a99ec39f-6a2b-4c05-883d-1973f511b325
+        type: string
+      quantity:
+        example: 10
+        type: integer
+      reason:
+        example: restock from supplier
+        type: string
+      type:
+        enum:
+        - IN
+        - OUT
+        - ADJUSTMENT
+        example: IN
+        type: string
     type: object
   handlers.UpdateProductRequest:
     properties:
@@ -58,13 +89,17 @@ definitions:
 host: localhost:8005
 info:
   contact: {}
-  description: backbone — Clean Architecture + CQRS example with net/http
+  description: backbone — Clean Architecture + CQRS example with net/http, PostgreSQL
+    and MongoDB
   title: Clean API Go
   version: "1.0"
 paths:
   /api/v1/products:
     get:
-      description: Get paginated list of products with optional filters and sorting
+      description: 'Offset-paginated by default (page/page_size). Pass ?cursor=<token>
+        instead to switch to keyset pagination — recommended for deep paging, since
+        it doesn''t degrade as the offset grows. The two modes are mutually exclusive:
+        cursor, when present, wins and page/page_size are ignored.'
       parameters:
       - collectionFormat: multi
         description: Repeated filter tokens e.g. category,eq,Electronics,and &filters=price,gt,500
@@ -73,7 +108,7 @@ paths:
           type: string
         name: filters
         type: array
-      - description: Page number (default 1)
+      - description: Page number, offset mode only (default 1)
         in: query
         name: page
         type: integer
@@ -84,6 +119,11 @@ paths:
       - description: Sort field and direction e.g. price:desc
         in: query
         name: sort_by
+        type: string
+      - description: Opaque token from a previous response's page.next_cursor — switches
+          to keyset pagination
+        in: query
+        name: cursor
         type: string
       produces:
       - application/json
@@ -248,4 +288,120 @@ paths:
       summary: Change product status
       tags:
       - products
+  /api/v1/sales:
+    get:
+      description: Returns sales, optionally filtered by product_id
+      parameters:
+      - description: Filter by product
+        in: query
+        name: product_id
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 10)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List sales
+      tags:
+      - sales
+    post:
+      consumes:
+      - application/json
+      description: Decrements product stock (PostgreSQL) and logs the sale (MongoDB)
+      parameters:
+      - description: Sale data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterSaleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: insufficient stock
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Register a sale
+      tags:
+      - sales
+  /api/v1/stock-movements:
+    get:
+      description: Returns stock movements, optionally filtered by product_id
+      parameters:
+      - description: Filter by product
+        in: query
+        name: product_id
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 10)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List stock movements
+      tags:
+      - stock-movements
+    post:
+      consumes:
+      - application/json
+      description: Adjusts product stock (PostgreSQL) and logs the movement (MongoDB)
+      parameters:
+      - description: Movement data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterStockMovementRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: would take stock below zero
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Register a stock movement
+      tags:
+      - stock-movements
 swagger: "2.0"

@@ -29,9 +29,21 @@ func TestProcessResponseBuilder_Deleted(t *testing.T) {
 
 func TestSimpleObjectResponseBuilder_Found(t *testing.T) {
 	data := map[string]interface{}{"id": "1", "name": "Laptop"}
-	result := responses.SimpleObjectResponseBuilder.Found(data)
+	result := responses.SimpleObjectResponseBuilder.Found(data).(map[string]interface{})
 	assert.Equal(t, "1", result["id"])
 	assert.Equal(t, "Laptop", result["name"])
+}
+
+// Found accepts a typed struct directly too — no map[string]interface{}
+// conversion required just to satisfy the signature.
+func TestSimpleObjectResponseBuilder_Found_TypedStruct(t *testing.T) {
+	type product struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	result := responses.SimpleObjectResponseBuilder.Found(product{ID: "1", Name: "Laptop"}).(product)
+	assert.Equal(t, "1", result.ID)
+	assert.Equal(t, "Laptop", result.Name)
 }
 
 // ── PaginatedResponseBuilder ─────────────────────────────────────────────────
@@ -61,6 +73,19 @@ func TestPaginatedResponseBuilder_NilItemsBecomesEmpty(t *testing.T) {
 	resp := responses.PaginatedResponseBuilder.Success(nil, 0, 1, 10, "Empty")
 	require.NotNil(t, resp.Items)
 	assert.Empty(t, resp.Items)
+}
+
+// Success accepts a typed slice directly — the caller doesn't have to
+// build a []map[string]interface{} just to satisfy the signature.
+func TestPaginatedResponseBuilder_Success_TypedSlice(t *testing.T) {
+	type product struct {
+		ID string `json:"id"`
+	}
+	items := []product{{ID: "1"}, {ID: "2"}}
+	resp := responses.PaginatedResponseBuilder.Success(items, 2, 1, 10, "Products retrieved")
+
+	assert.Len(t, resp.Items, 2)
+	assert.Equal(t, items, resp.Items)
 }
 
 // ── ErrorResponseBuilder ──────────────────────────────────────────────────────

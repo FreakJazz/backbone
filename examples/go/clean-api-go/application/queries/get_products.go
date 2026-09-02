@@ -8,6 +8,7 @@ import (
 	bberrors "github.com/FreakJazz/backbone/backbone-go/errors"
 	bbex "github.com/FreakJazz/backbone/backbone-go/interfaces/responses"
 	"github.com/FreakJazz/backbone/backbone-go/infrastructure/logging"
+	"github.com/freakjazz/clean-api-go/domain/entities"
 	"github.com/freakjazz/clean-api-go/domain/repositories"
 	productspecs "github.com/freakjazz/clean-api-go/domain/specifications"
 )
@@ -19,8 +20,13 @@ type GetProductsQuery struct {
 	PageSize int
 }
 
+// Items is []*entities.Product rather than []map[string]interface{} —
+// backbone-go's PaginatedResponseBuilder.Success accepts any slice, so
+// there's no need to flatten each Product into a map first. A tagged
+// struct also marshals faster than a map (encoding/json sorts map keys
+// before writing them; a struct's field order is fixed at compile time).
 type GetProductsResult struct {
-	Items      []map[string]interface{}
+	Items      []*entities.Product
 	TotalCount int
 	Page       int
 	PageSize   int
@@ -34,12 +40,12 @@ type GetProductsQueryHandler struct {
 func NewGetProductsQueryHandler(repo repositories.IProductRepository) *GetProductsQueryHandler {
 	return &GetProductsQueryHandler{
 		repo:   repo,
-		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("GetProductsQueryHandler"),
+		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("GetProductsQueryHandler").WithMethod("Handle"),
 	}
 }
 
 func (h *GetProductsQueryHandler) Handle(ctx context.Context, q GetProductsQuery) (*GetProductsResult, *bbex.ErrorResponse) {
-	log := h.logger.WithMethod("Handle")
+	log := h.logger
 
 	// Validate filter format before building criteria
 	for _, f := range q.Filters {
@@ -56,17 +62,13 @@ func (h *GetProductsQueryHandler) Handle(ctx context.Context, q GetProductsQuery
 
 	criteria := productspecs.BuildCriteria(q.Filters, q.Page, q.PageSize, q.SortBy)
 
-	products, err := h.repo.FindByCriteria(ctx, criteria)
+	// One round trip for both the page and the total count (see
+	// FindByCriteria's doc comment) — not a separate SELECT + COUNT query.
+	products, total, err := h.repo.FindByCriteria(ctx, criteria)
 	if err != nil {
 		log.ErrorWithCode("FindByCriteria failed", bberrors.InfraDBFailure.Int(), map[string]interface{}{"error": err.Error()})
 		e := bbex.ErrorResponseBuilder.InternalServerError(err.Error())
 		return nil, &e
-	}
-	total, _ := h.repo.Count(ctx, criteria)
-
-	items := make([]map[string]interface{}, len(products))
-	for i, p := range products {
-		items[i] = p.ToMap()
 	}
 
 	log.Info("Products listed", map[string]interface{}{
@@ -74,7 +76,7 @@ func (h *GetProductsQueryHandler) Handle(ctx context.Context, q GetProductsQuery
 	})
 
 	return &GetProductsResult{
-		Items:      items,
+		Items:      products,
 		TotalCount: total,
 		Page:       q.Page,
 		PageSize:   q.PageSize,

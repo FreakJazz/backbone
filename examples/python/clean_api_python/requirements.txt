@@ -1,3 +1,11 @@
 flask>=3.0.0
 flask-restx>=1.3.0
-# Install backbone first: pip install -e ../../backbone-python
+psycopg[binary]>=3.1.0
+psycopg-pool>=3.2.0
+pymongo>=4.7.0
+python-dotenv>=1.0.0
+
+# backbone, installed for real from GitHub (not vendored, no sys.path shim —
+# see main.py). Pin to a commit/tag once backbone-python cuts a release; for
+# now this tracks main.
+git+https://github.com/FreakJazz/backbone.git@main#subdirectory=backbone-python

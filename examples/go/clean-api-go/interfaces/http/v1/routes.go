@@ -7,7 +7,13 @@ import (
 	"github.com/freakjazz/clean-api-go/interfaces/http/handlers"
 )
 
-func RegisterRoutes(mux *http.ServeMux, cmd *handlers.ProductCommandHandler, qry *handlers.ProductQueryHandler) {
+func RegisterRoutes(
+	mux *http.ServeMux,
+	cmd *handlers.ProductCommandHandler,
+	qry *handlers.ProductQueryHandler,
+	sales *handlers.SaleHandler,
+	movements *handlers.StockMovementHandler,
+) {
 	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -40,6 +46,30 @@ func RegisterRoutes(mux *http.ServeMux, cmd *handlers.ProductCommandHandler, qry
 			cmd.Update(w, r, productID)
 		case http.MethodDelete:
 			cmd.Delete(w, r, productID)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// ── /api/v1/sales (Mongo transaction log) ────────────────────────────────
+	mux.HandleFunc("/api/v1/sales", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			sales.List(w, r)
+		case http.MethodPost:
+			sales.Register(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// ── /api/v1/stock-movements (Mongo transaction log) ──────────────────────
+	mux.HandleFunc("/api/v1/stock-movements", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			movements.List(w, r)
+		case http.MethodPost:
+			movements.Register(w, r)
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}

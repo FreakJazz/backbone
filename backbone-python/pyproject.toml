@@ -78,9 +78,42 @@ Repository = "https://github.com/FreakJazz/backbone"
 [tool.setuptools]
 package-dir = {"backbone" = ""}
 
-[tool.setuptools.packages.find]
-where = ["."]
-exclude = ["tests*", "examples*", "docs*", ".venv*", "htmlcov*"]
+# Explicit list instead of [tool.setuptools.packages.find]: find() computes
+# dotted package names *relative to `where`*, so it has no way to apply the
+# "backbone" -> "" package-dir remap above — it discovers "domain",
+# "application", etc. as their own top-level packages and drops the
+# "backbone" root entirely (it's never itself found, since packages.find()
+# only reports subdirectories of `where`, not `where` itself). The result:
+# `pip install` from GitHub built a wheel with top-level modules named
+# "domain", "application", ... instead of "backbone.domain",
+# "backbone.application", ... — every example in this repo imports the
+# latter, so the installed package was silently unusable. Listing every
+# package explicitly under the "backbone." prefix is what actually makes
+# package-dir's remap take effect.
+packages = [
+    "backbone",
+    "backbone.domain",
+    "backbone.domain.exceptions",
+    "backbone.domain.ports",
+    "backbone.domain.repositories",
+    "backbone.domain.specifications",
+    "backbone.application",
+    "backbone.application.event_handlers",
+    "backbone.application.exceptions",
+    "backbone.infrastructure",
+    "backbone.infrastructure.configuration",
+    "backbone.infrastructure.events",
+    "backbone.infrastructure.exceptions",
+    "backbone.infrastructure.logging",
+    "backbone.infrastructure.messaging",
+    "backbone.infrastructure.persistence",
+    "backbone.infrastructure.persistence.adapters",
+    "backbone.infrastructure.testing",
+    "backbone.interfaces",
+    "backbone.interfaces.exceptions",
+    "backbone.interfaces.response_builders",
+    "backbone.errors",
+]
 
 [tool.setuptools.package-data]
 backbone = ["py.typed"]

@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/products": {
             "get": {
-                "description": "Get paginated list of products with optional filters and sorting",
+                "description": "Offset-paginated by default (page/page_size). Pass ?cursor=\u003ctoken\u003e instead to switch to keyset pagination — recommended for deep paging, since it doesn't degrade as the offset grows. The two modes are mutually exclusive: cursor, when present, wins and page/page_size are ignored.",
                 "produces": [
                     "application/json"
                 ],
@@ -38,7 +38,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Page number (default 1)",
+                        "description": "Page number, offset mode only (default 1)",
                         "name": "page",
                         "in": "query"
                     },
@@ -52,6 +52,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Sort field and direction e.g. price:desc",
                         "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque token from a previous response's page.next_cursor — switches to keyset pagination",
+                        "name": "cursor",
                         "in": "query"
                     }
                 ],
@@ -294,6 +300,182 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/sales": {
+            "get": {
+                "description": "Returns sales, optionally filtered by product_id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "List sales",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by product",
+                        "name": "product_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default 10)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Decrements product stock (PostgreSQL) and logs the sale (MongoDB)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Register a sale",
+                "parameters": [
+                    {
+                        "description": "Sale data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.RegisterSaleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "insufficient stock",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stock-movements": {
+            "get": {
+                "description": "Returns stock movements, optionally filtered by product_id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stock-movements"
+                ],
+                "summary": "List stock movements",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by product",
+                        "name": "product_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default 10)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Adjusts product stock (PostgreSQL) and logs the movement (MongoDB)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stock-movements"
+                ],
+                "summary": "Register a stock movement",
+                "parameters": [
+                    {
+                        "description": "Movement data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.RegisterStockMovementRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "would take stock below zero",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -329,6 +511,10 @@ const docTemplate = `{
                 "price": {
                     "type": "number",
                     "example": 999.99
+                },
+                "stock": {
+                    "type": "integer",
+                    "example": 25
                 }
             }
         },
@@ -350,6 +536,45 @@ const docTemplate = `{
                 "status_code": {
                     "type": "integer",
                     "example": 400
+                }
+            }
+        },
+        "handlers.RegisterSaleRequest": {
+            "type": "object",
+            "properties": {
+                "product_id": {
+                    "type": "string",
+                    "example": "a99ec39f-6a2b-4c05-883d-1973f511b325"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "handlers.RegisterStockMovementRequest": {
+            "type": "object",
+            "properties": {
+                "product_id": {
+                    "type": "string",
+                    "example": "a99ec39f-6a2b-4c05-883d-1973f511b325"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "restock from supplier"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "IN",
+                        "OUT",
+                        "ADJUSTMENT"
+                    ],
+                    "example": "IN"
                 }
             }
         },
@@ -384,7 +609,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Clean API Go",
-	Description:      "backbone — Clean Architecture + CQRS example with net/http",
+	Description:      "backbone — Clean Architecture + CQRS example with net/http, PostgreSQL and MongoDB",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

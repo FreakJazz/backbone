@@ -1,17 +1,31 @@
 package entities
 
-import "github.com/google/uuid"
+import (
+	"time"
 
+	"github.com/google/uuid"
+)
+
+// Product lives in PostgreSQL. Stock is the single source of truth for
+// availability — Sale and StockMovement (both in Mongo) only ever move it
+// through IProductRepository.AdjustStock, never by writing it directly.
 type Product struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Price       float64 `json:"price"`
-	Category    string  `json:"category"`
-	Status      string  `json:"status"`
-	Description string  `json:"description,omitempty"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Price       float64   `json:"price"`
+	Category    string    `json:"category"`
+	Status      string    `json:"status"`
+	Description string    `json:"description"`
+	Stock       int       `json:"stock"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// NewProduct keeps its original 4-arg signature for backward compatibility
+// with existing call sites/tests. Stock defaults to 0 — set it explicitly
+// on the returned Product when a non-zero initial stock is needed.
 func NewProduct(name string, price float64, category, description string) *Product {
+	now := time.Now().UTC()
 	return &Product{
 		ID:          uuid.New().String(),
 		Name:        name,
@@ -19,16 +33,7 @@ func NewProduct(name string, price float64, category, description string) *Produ
 		Category:    category,
 		Status:      "active",
 		Description: description,
-	}
-}
-
-func (p *Product) ToMap() map[string]interface{} {
-	return map[string]interface{}{
-		"id":          p.ID,
-		"name":        p.Name,
-		"price":       p.Price,
-		"category":    p.Category,
-		"status":      p.Status,
-		"description": p.Description,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 }

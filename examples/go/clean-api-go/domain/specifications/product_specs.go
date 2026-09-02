@@ -5,7 +5,7 @@ import (
 )
 
 var ValidSortFields = map[string]bool{
-	"name": true, "price": true, "category": true, "status": true,
+	"name": true, "price": true, "category": true, "status": true, "stock": true, "created_at": true,
 }
 
 func BuildCriteria(filters []string, page, pageSize int, sortBy string) *specifications.Criteria {

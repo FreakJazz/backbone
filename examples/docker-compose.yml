@@ -1,0 +1,73 @@
+# Shared infra for the DB-backed examples:
+#   - go/clean-api-postgres-mongo-go
+#   - python/clean_api_postgres_mongo_python
+#
+# Both examples point at the same Postgres/Mongo instances (see each
+# example's .env.example) — they use the same schema/collections, so running
+# either one (or both, against the same data) works the same way two
+# microservices in different languages would share infrastructure.
+#
+# Usage:
+#   docker compose -f examples/docker-compose.yml up -d
+#   docker compose -f examples/docker-compose.yml down        # stop
+#   docker compose -f examples/docker-compose.yml down -v     # stop + wipe data
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: backbone-postgres
+    environment:
+      POSTGRES_USER: backbone
+      POSTGRES_PASSWORD: backbone
+      POSTGRES_DB: backbone_products
+    ports:
+      - "5433:5432"   # host 5433 to avoid clashing with a locally-running Postgres
+    volumes:
+      - backbone_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backbone -d backbone_products"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: backbone-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: backbone
+      MONGO_INITDB_ROOT_PASSWORD: backbone
+    ports:
+      - "27018:27017"   # host 27018 to avoid clashing with a locally-running Mongo
+    volumes:
+      - backbone_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Optional web UIs — comment out if you don't want them ──────────────────
+  adminer:
+    image: adminer
+    container_name: backbone-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+
+  mongo-express:
+    image: mongo-express
+    container_name: backbone-mongo-express
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: backbone
+      ME_CONFIG_MONGODB_ADMINPASSWORD: backbone
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_BASICAUTH: "false"
+    ports:
+      - "8082:8081"
+    depends_on:
+      - mongo
+
+volumes:
+  backbone_postgres_data:
+  backbone_mongo_data:

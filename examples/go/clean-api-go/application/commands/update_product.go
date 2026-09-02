@@ -26,12 +26,12 @@ type UpdateProductCommandHandler struct {
 func NewUpdateProductCommandHandler(repo repositories.IProductRepository) *UpdateProductCommandHandler {
 	return &UpdateProductCommandHandler{
 		repo:   repo,
-		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("UpdateProductCommandHandler"),
+		logger: logging.NewEnhancedLogger("clean-api-go").WithLayer("application").WithComponent("UpdateProductCommandHandler").WithMethod("Handle"),
 	}
 }
 
 func (h *UpdateProductCommandHandler) Handle(ctx context.Context, cmd UpdateProductCommand) (string, *bbex.ErrorResponse) {
-	log := h.logger.WithMethod("Handle")
+	log := h.logger
 
 	product, err := h.repo.FindByID(ctx, cmd.ProductID)
 	if err != nil || product == nil {

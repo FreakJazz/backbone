@@ -19,11 +19,11 @@ func TestGetProductByID_Found(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %+v", err)
 	}
-	if data["id"] != p.ID {
-		t.Fatalf("expected id %s, got %v", p.ID, data["id"])
+	if data.ID != p.ID {
+		t.Fatalf("expected id %s, got %v", p.ID, data.ID)
 	}
-	if data["name"] != "Laptop" {
-		t.Fatalf("expected name Laptop, got %v", data["name"])
+	if data.Name != "Laptop" {
+		t.Fatalf("expected name Laptop, got %v", data.Name)
 	}
 }
 

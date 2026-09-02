@@ -111,7 +111,9 @@ from .domain.specifications import (
     FilterParser,
     MultipleSortSpecification,
     SortSpecification,
-    SortDirection
+    SortDirection,
+    encode_cursor,
+    decode_cursor
 )
 
 # === APPLICATION LAYER EXPORTS ===
@@ -208,6 +210,7 @@ from .interfaces.response_builders import (
     ProcessResponseBuilder,
     SimpleObjectResponseBuilder,
     PaginatedResponseBuilder,
+    CursorPaginatedResponseBuilder,
     ErrorResponseBuilder
 )
 
@@ -258,7 +261,9 @@ __all__ = [
     "MultipleSortSpecification",
     "SortSpecification",
     "SortDirection",
-    
+    "encode_cursor",
+    "decode_cursor",
+
     # Application Layer
     "ApplicationException",
     "UseCaseException",
@@ -309,7 +314,8 @@ __all__ = [
     "DeserializationException",
     "ProcessResponseBuilder",
     "SimpleObjectResponseBuilder",
-    "PaginatedResponseBuilder", 
+    "PaginatedResponseBuilder",
+    "CursorPaginatedResponseBuilder",
     "ErrorResponseBuilder"
 ]
 
