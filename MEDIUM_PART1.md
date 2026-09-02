@@ -406,8 +406,8 @@ responses.ProcessResponseBuilder.Updated("uuid-123")
 responses.ProcessResponseBuilder.Deleted("uuid-123")
 
 // Read operations
-responses.SimpleObjectResponseBuilder.Found(productMap)
-responses.PaginatedResponseBuilder.Found(items, meta, pagination)
+responses.SimpleObjectResponseBuilder.Found(product)   // accepts any JSON-marshalable value — a map or a tagged struct
+responses.PaginatedResponseBuilder.Success(items, totalCount, page, pageSize, "Products retrieved successfully")
 ```
 
 **Python builders:**
@@ -419,7 +419,7 @@ ProcessResponseBuilder.deleted("uuid-123")
 
 # Read operations
 SimpleObjectResponseBuilder.found(product_dict)
-PaginatedResponseBuilder.found(items, meta, pagination)
+PaginatedResponseBuilder.success(items, total_count, page, page_size, "Products retrieved successfully")
 ```
 
 ---

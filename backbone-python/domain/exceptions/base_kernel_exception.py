@@ -3,7 +3,7 @@ Base Kernel Exception - Excepción base para todo el sistema backbone
 """
 import uuid
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class BaseKernelException(Exception):
@@ -49,7 +49,7 @@ class BaseKernelException(Exception):
         self.details = details or {}
         self.rid = rid or self._generate_rid()
         self.internal_data = internal_data or {}
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
         
         # Validar código de 8 o 9 dígitos (formato LL_NNNNNNN)
         if not (10000000 <= code <= 999999999):

@@ -122,7 +122,11 @@ logger := logging.NewEnhancedLogger("orders-service").
 
 logger.Info("processing order", map[string]interface{}{"order_id": "ord-123"})
 // {"level":"INFO","layer":"application","component":"CreateOrderCommandHandler","method":"Handle","message":"processing order",...}
+```
 
+The "create once per handler" part above isn't just tidiness — each `With*` call returns a *new* `EnhancedLogger`, cloning its context map along the way. Chaining `WithLayer`/`WithComponent`/`WithMethod` once, at construction, costs that clone exactly once per handler's lifetime. Calling `.WithMethod("Handle")` again *inside* `Handle()` — easy to do if you copy-paste the constructor line into the method by mistake — reintroduces that clone on every single request for a value that never changes. Store the fully-scoped logger once; `Handle()` should only ever read it.
+
+```go
 // Error with error code and automatic stack trace
 logger.ErrorWithCode("charge failed", bberrors.InfraExternalAPIFailure.Int(), map[string]interface{}{
     "order_id": "ord-123",

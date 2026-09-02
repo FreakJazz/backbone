@@ -300,6 +300,14 @@ GET /api/v1/products
 
 Supported operators: `eq` `ne` `gt` `gte` `lt` `lte` `contains` `in` `between` `is_null` `is_not_null`
 
+`page`/`page_size` above is offset pagination — the default, and it gives
+you a `total_count`. For deep paging into a large or growing list, pass
+`cursor=<token>` instead (from a previous response's `page.next_cursor`):
+Postgres seeks directly via the sort index instead of scanning and
+discarding every skipped row the way `OFFSET` has to. The two modes are
+mutually exclusive and serve different needs, not one replacing the other
+— full write-up in [Part 2](./MEDIUM_PART2.md#deep-paging-when-offset-stops-being-enough).
+
 **Go:**
 ```go
 import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
@@ -311,8 +319,11 @@ criteria := specifications.ParseFilterParams(
     page, pageSize, sortField, sortDir,
 )
 
-products, _ := repo.FindByCriteria(ctx, criteria)
-total, _    := repo.Count(ctx, criteria)
+// One call, one round trip — FindByCriteria returns the page and the total
+// match count together (a production repository rides the total on the
+// same query via SQL's COUNT(*) OVER(), so a separate Count(ctx, criteria)
+// call would just be a second, avoidable round trip).
+products, total, _ := repo.FindByCriteria(ctx, criteria)
 ```
 
 **Python:**
@@ -323,7 +334,7 @@ parser = FilterParser(allowed_fields=["name", "price", "category", "status"])
 criteria = parser.parse(request.args.getlist("filters"))
 sort     = SortSpecification.parse(request.args.get("sort_by", "created_at:desc"))
 
-products = repo.find_by_criteria(criteria, sort, page=1, page_size=20)
+products, total = repo.find_by_criteria(criteria, sort, page=1, page_size=20)
 ```
 
 You can also compose specifications manually for domain logic:
@@ -352,8 +363,10 @@ your-service/
 │   ├── commands/           # write side: CreateProduct, UpdateProduct, ...
 │   └── queries/            # read side:  GetProducts, GetProductByID
 ├── infrastructure/
-│   ├── repositories/       # concrete implementations (in-memory, SQL, ...)
-│   └── seeders/            # test/seed data
+│   ├── database/           # connection pools + schema/index bootstrap (Postgres, Mongo)
+│   ├── repositories/       # concrete implementations — Postgres/Mongo in production,
+│   │                       # an in-memory fake kept around for the test suite only
+│   └── seeders/            # demo data
 └── interfaces/http/
     ├── handlers/           # thin HTTP adapters — map HTTP → command/query
     └── v1/routes.*         # versioned route registration
@@ -365,19 +378,35 @@ your-service/
 
 ## Try it
 
+Both examples run against real PostgreSQL (product catalog) and MongoDB
+(sales/stock-movement transaction logs) — not an in-memory stand-in — via a
+shared `docker-compose.yml`:
+
 ```bash
-# Go example — Swagger UI included
-cd examples/go/clean-api-go
+# 1. Start Postgres + Mongo (shared by both examples)
+cd examples
+docker compose up -d
+
+# 2a. Go example — Swagger UI included
+cd go/clean-api-go
+cp .env.example .env
 go mod tidy && swag init && go run main.go
 # http://localhost:8005/docs/index.html
 
-# Python example — flask-restx UI included
+# 2b. Python example — flask-restx UI included
 cd examples/python/clean_api_python
-pip install flask flask-restx && python main.py
+cp .env.example .env
+python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt && python main.py
 # http://localhost:5000/docs
 ```
 
-Both examples implement the same CRUD API for products — create, update, change status, delete, get by ID, get list with filters. You can run both and compare the JSON responses: they are identical.
+Both examples implement the same product CRUD (create, update, change
+status, delete, get by ID, get list with filters) *plus* sales and
+stock-movement endpoints that decrement/adjust `stock` in Postgres and log
+the event in Mongo, and the same two pagination modes on the list endpoint
+— offset (`page`/`page_size`) and keyset (`cursor`). Run both and compare
+the JSON responses: they are identical.
 
 ---
 

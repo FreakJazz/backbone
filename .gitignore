@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Backbone Python - JsonFileEventStore test artifacts
+# TestJsonFileEventStore now writes to a tempfile.mkdtemp() directory
+# outside the repo, but this rule stays as a backstop against relative
+# event-store paths (default "events", or a literal "test_events.json")
+# ever writing real files into the working tree again.
+/backbone-python/events/
+/backbone-python/test_events.json/

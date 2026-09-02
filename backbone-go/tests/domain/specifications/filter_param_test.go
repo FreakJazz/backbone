@@ -95,7 +95,11 @@ func TestParseFilterParams_Contains(t *testing.T) {
 	require.NotNil(t, criteria.Specification)
 	sql, args := criteria.Specification.ToSQL()
 	assert.Contains(t, sql, "LIKE")
-	assert.Equal(t, "laptop", args[0])
+	// NewLikeSpecification wraps the raw value with % automatically (see its
+	// doc comment) — the caller passes "laptop", the bound arg is "%laptop%".
+	// This assertion used to expect the unwrapped value; it went stale when
+	// the auto-wrap behavior was added without updating this test.
+	assert.Equal(t, "%laptop%", args[0])
 }
 
 func TestParseFilterParams_MultipleAndCondition(t *testing.T) {

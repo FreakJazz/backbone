@@ -1,0 +1,73 @@
+name: CI
+
+# Runs on every push and pull request - unlike publish.yml (which only ever
+# fires behind a GitHub Release, and this repo has never cut one), this is
+# the gate that actually catches a regression on the commit that introduces
+# it. Its absence is why several real defects (a broken module path, a
+# packaging bug that made every install fail, a stale test assertion)
+# shipped to main undetected.
+#
+# Every run step below is a single line on purpose (chained with &&
+# instead of a multi-line block scalar) - this file has repeatedly had its
+# "|" block-scalar indicators stripped by something in this editing
+# environment, which silently concatenates a multi-line run: block into
+# one broken command. A single-line run: needs no such indicator, so there
+# is nothing left for that process to corrupt.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backbone-go:
+    name: backbone-go
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backbone-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: backbone-go/go.sum
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -v
+
+  backbone-python:
+    name: backbone-python
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backbone-python
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backbone-python/pyproject.toml
+
+      - name: Install package and test dependencies
+        run: python -m pip install --upgrade pip && pip install -e ".[test]"
+
+      - name: Test
+        run: pytest tests/ -v

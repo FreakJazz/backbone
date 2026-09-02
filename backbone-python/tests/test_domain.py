@@ -26,6 +26,8 @@ from backbone import (
     SortSpecification,
     MultipleSortSpecification,
     SortDirection,
+    encode_cursor,
+    decode_cursor,
     BaseTestCase
 )
 
@@ -414,6 +416,46 @@ class TestSortSpecification(BaseTestCase):
         # Assert
         self.assertEqual(SortDirection.ASC.value, "asc")
         self.assertEqual(SortDirection.DESC.value, "desc")
+
+
+class TestCursorPagination(BaseTestCase):
+    """Test keyset (cursor) pagination tokens — same wire format as
+    backbone-go's EncodeCursor/DecodeCursor."""
+
+    def test_round_trip_numeric(self):
+        """Test: a numeric sort value round-trips as a float (JSON numbers
+        always decode as float, matching backbone-go's behavior)"""
+        token = encode_cursor(199.99, "product-42")
+        self.assertTrue(token)
+
+        value, id_ = decode_cursor(token)
+        self.assertEqual(value, 199.99)
+        self.assertEqual(id_, "product-42")
+
+    def test_round_trip_string(self):
+        """Test: a string sort value (e.g. an ISO timestamp) round-trips as-is"""
+        token = encode_cursor("2026-01-01T00:00:00+00:00", "product-1")
+        value, id_ = decode_cursor(token)
+        self.assertEqual(value, "2026-01-01T00:00:00+00:00")
+        self.assertEqual(id_, "product-1")
+
+    def test_token_is_url_safe(self):
+        """Test: the token never contains characters that need URL-encoding"""
+        token = encode_cursor("a value with spaces & symbols/+", "id")
+        for unsafe_char in ("/", "+", "="):
+            self.assertNotIn(unsafe_char, token)
+
+    def test_decode_rejects_garbage(self):
+        """Test: a malformed token raises ValueError, not an unhandled exception"""
+        with self.assertRaises(ValueError):
+            decode_cursor("not-a-valid-cursor!!!")
+
+    def test_decode_rejects_missing_id(self):
+        """Test: a token encoded with an empty id is rejected on decode —
+        an id-less cursor can never identify a row's position"""
+        token = encode_cursor("value", "")
+        with self.assertRaises(ValueError):
+            decode_cursor(token)
 
 
 # === RUN TESTS ===

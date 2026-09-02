@@ -8,6 +8,7 @@ from backbone import (
     ProcessResponseBuilder,
     SimpleObjectResponseBuilder,
     PaginatedResponseBuilder,
+    CursorPaginatedResponseBuilder,
     ErrorResponseBuilder,
     PresentationException,
     RequestValidationException,
@@ -132,6 +133,45 @@ class TestPaginatedResponseBuilder(BaseTestCase):
         self.assertEqual(response["meta"]["message"], "No users found matching criteria")
         self.assertEqual(response["items"], [])
         self.assertEqual(response["pagination"]["total_count"], 0)
+
+
+class TestCursorPaginatedResponseBuilder(BaseTestCase):
+    """Test cursor (keyset) paginated response builder — contrato: {meta, items, page}."""
+
+    def test_success_with_next_cursor(self):
+        """Test: success() with a next_cursor reports has_more=True"""
+        items = [{"id": "1"}, {"id": "2"}]
+        response = CursorPaginatedResponseBuilder.success(
+            items=items,
+            next_cursor="eyJ2IjogMTk5Ljk5LCAiaWQiOiAiMiJ9",
+            message="Products retrieved successfully",
+        )
+
+        self.assertEqual(response["meta"]["status"], "success")
+        self.assertEqual(response["meta"]["status_code"], 200)
+        self.assertEqual(response["meta"]["message"], "Products retrieved successfully")
+        self.assertEqual(response["items"], items)
+        self.assertEqual(response["page"]["next_cursor"], "eyJ2IjogMTk5Ljk5LCAiaWQiOiAiMiJ9")
+        self.assertTrue(response["page"]["has_more"])
+
+    def test_success_last_page_has_no_next_cursor(self):
+        """Test: success() without a next_cursor reports has_more=False —
+        has_more is derived from next_cursor, not passed separately, so the
+        two can never disagree."""
+        response = CursorPaginatedResponseBuilder.success(
+            items=[{"id": "1"}],
+            next_cursor=None,
+            message="Products retrieved successfully",
+        )
+        self.assertIsNone(response["page"]["next_cursor"])
+        self.assertFalse(response["page"]["has_more"])
+
+    def test_success_empty_items_defaults(self):
+        """Test: default message and empty items list both work"""
+        response = CursorPaginatedResponseBuilder.success(items=[])
+        self.assertEqual(response["items"], [])
+        self.assertFalse(response["page"]["has_more"])
+        self.assertEqual(response["meta"]["status_code"], 200)
 
 
 class TestErrorResponseBuilder(BaseTestCase):

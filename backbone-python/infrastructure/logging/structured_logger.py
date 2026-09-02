@@ -4,8 +4,23 @@ Structured Logger - Logger abstracto y desacoplado
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import json
+
+
+def format_timestamp_utc_z(dt: datetime) -> str:
+    """Renders dt as an RFC3339 UTC timestamp ending in a literal "Z" —
+    the same wire format backbone-go emits for time.Time (Go's "Z07:00"
+    format directive prints a literal "Z" for zero UTC offset). A naive
+    datetime is assumed to already be UTC; an aware one is converted first.
+    Centralized here instead of the once-common `.isoformat() + "Z"`
+    one-liner, which silently produces an invalid double-suffixed string
+    like "...+00:00Z" once timestamp is timezone-aware (as it is here,
+    since Python 3.12 deprecated the naive `datetime.utcnow()` this type
+    used to be built from)."""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.isoformat() + "Z"
 
 
 class LogLevel(str, Enum):
@@ -65,7 +80,7 @@ class LogEntry:
     ):
         self.level = level
         self.message = message
-        self.timestamp = timestamp or datetime.utcnow()
+        self.timestamp = timestamp or datetime.now(timezone.utc)
         self.context = context or {}
         self.extra_data = extra_data or {}
         self.exception = exception
@@ -81,7 +96,7 @@ class LogEntry:
 
     def to_dict(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {
-            "timestamp": self.timestamp.isoformat() + "Z",
+            "timestamp": format_timestamp_utc_z(self.timestamp),
             "level": self.level.value,
             "message": self.message,
         }

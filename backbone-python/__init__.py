@@ -57,6 +57,23 @@ if "backbone" not in _sys.modules:
 if not __package__:  # imported without package context (e.g. pytest setup)
     __package__ = "backbone"    # type: ignore[assignment]
 
+# pytest's own collection sometimes loads this exact file a second time
+# under a synthetic module name (e.g. "__init__") whose auto-generated
+# spec makes __spec__.parent compute to "" — left alone, that disagrees
+# with the __package__ override above and Python raises
+# DeprecationWarning: __package__ != __spec__.parent on every relative
+# import below. The override itself is load-bearing (those relative
+# imports need __package__ == "backbone" to resolve), so the fix is to
+# bring __spec__.parent into agreement with it rather than to drop the
+# override. `parent` is a read-only property computed from `name` and
+# `submodule_search_locations` (`name` itself when the spec describes a
+# package, `name.rpartition(".")[0]` otherwise) — there's no `parent`
+# attribute to assign directly, so both of those are set instead.
+if __spec__ is not None and __spec__.parent != __package__:
+    __spec__.name = __package__
+    if __spec__.submodule_search_locations is None:
+        __spec__.submodule_search_locations = [_here]
+
 del _sys, _os, _types, _here
 
 # Framework version

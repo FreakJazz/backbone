@@ -41,6 +41,7 @@ Instead of per-entity query params, every list endpoint in every service accepts
 | `page`      | integer                             | `1`                      |
 | `page_size` | integer                             | `10`                     |
 | `sort_by`   | `field:direction`                   | `created_at:desc`        |
+| `cursor`    | opaque token (optional, replaces `page`) | from a previous response's `page.next_cursor` |
 
 One frontend developer. One query language. Every service.
 
@@ -132,12 +133,14 @@ func (h *GetProductsQueryHandler) Handle(ctx context.Context, q GetProductsQuery
         sortDir,
     )
 
-    products, err := h.repo.FindByCriteria(ctx, criteria)
-    if err != nil {
-        return nil, err
-    }
-
-    total, err := h.repo.Count(ctx, criteria)
+    // One call, one round trip: FindByCriteria returns the page AND the
+    // total match count together. Earlier drafts of this repository split
+    // that into FindByCriteria + a separate Count(ctx, criteria) call —
+    // two queries where one does. A production repository (see "What the
+    // repository does with a Criteria" below) rides the total on the same
+    // query via SQL's COUNT(*) OVER(), so the split version wasn't just
+    // more verbose, it was strictly slower for no benefit.
+    products, total, err := h.repo.FindByCriteria(ctx, criteria)
     if err != nil {
         return nil, err
     }
@@ -160,7 +163,7 @@ criteria := specifications.NewCriteriaBuilder().
     Paginate(1, 100).
     Build()
 
-products, _ := repo.FindByCriteria(ctx, criteria)
+products, total, _ := repo.FindByCriteria(ctx, criteria)
 ```
 
 ### Receiving params in the HTTP handler
@@ -188,7 +191,8 @@ func (h *ProductQueryHandler) GetProducts(w http.ResponseWriter, r *http.Request
     }
 
     json.NewEncoder(w).Encode(
-        responses.PaginatedResponseBuilder.Found(result.Products, result.Meta, result.Pagination))
+        responses.PaginatedResponseBuilder.Success(
+            result.Products, result.Total, page, pageSize, "Products retrieved successfully"))
 }
 ```
 
@@ -211,8 +215,13 @@ class GetProductsQueryHandler:
         # Parse sort: "price,desc" → SortSpecification
         sort = SortParser().parse_sort(query.sort_by or "created_at,desc")
 
-        products = self._repo.find_by_criteria(spec, sort, query.page, query.page_size)
-        total    = self._repo.count(spec)
+        # One call, one round trip: find_by_criteria returns the page AND
+        # the total match count together — not a separate .count(spec)
+        # call. A production repository rides the total on the same query
+        # via SQL's COUNT(*) OVER() (see "What the repository does with a
+        # Criteria" below), so splitting this into two calls wouldn't just
+        # be more verbose, it would be strictly slower for no benefit.
+        products, total = self._repo.find_by_criteria(spec, sort, query.page, query.page_size)
 
         return GetProductsResult(products=products, total=total)
 ```
@@ -233,7 +242,7 @@ spec = (EqualSpecification("status", "active") &
         GreaterThanSpecification("stock", 0) &
         BetweenSpecification("price", 500, 2000))
 
-products = repo.find_by_criteria(spec, page=1, page_size=100)
+products, total = repo.find_by_criteria(spec, page=1, page_size=100)
 ```
 
 ### Parsing from a dictionary (Django-style)
@@ -267,8 +276,10 @@ def get_products():
         query  = GetProductsQuery(filters=filters, sort_by=sort_by, page=page, page_size=page_size)
         result = handler.handle(query)
 
-        return jsonify(PaginatedResponseBuilder.found(
-            result.products, result.meta, result.pagination)), 200
+        return jsonify(PaginatedResponseBuilder.success(
+            items=result.products, total_count=result.total,
+            page=page, page_size=page_size,
+            message="Products retrieved successfully")), 200
 
     except Exception as e:
         err = ErrorResponseBuilder.internal_server_error(str(e))
@@ -316,33 +327,96 @@ spec = parser.parse_filters(query.filters)
 
 ## What the repository does with a Criteria
 
-The repository is the only layer that knows about the database. It receives the `Criteria` object and translates it — without the application layer knowing how.
+The repository is the only layer that knows about the database. It receives the `Criteria` object and translates it — without the application layer knowing how. Two real implementations, same call from the application layer:
 
-**In-memory repository (testing / demo):**
+**In-memory repository (testing / demo)** — evaluates the specification against each entity in process, via reflection:
+
 ```go
-func (r *MemoryProductRepository) FindByCriteria(ctx context.Context, c *specifications.Criteria) ([]*Product, error) {
-    var results []*Product
+func (r *MemoryProductRepository) FindByCriteria(ctx context.Context, c *specifications.Criteria) ([]*Product, int, error) {
+    var filtered []*Product
     for _, p := range r.products {
-        if r.matchesCriteria(p, c) {
-            results = append(results, p)
+        if c.Specification == nil || c.Specification.IsSatisfiedBy(p) {
+            filtered = append(filtered, p)
         }
     }
-    // apply sort, pagination...
-    return results, nil
+    // sort filtered by c.Sorts...
+    total := len(filtered)
+    page := paginate(filtered, c.Offset, c.Limit)
+    return page, total, nil
 }
 ```
 
-**SQL repository (production):**
+**Postgres repository (production)** — `Criteria.GetFullSQL(...)` already builds a real parameterized `WHERE`/`ORDER BY`/`LIMIT` clause from the same specification, no reflection involved. The one addition worth making yourself: ride the total count on the *same* query with `COUNT(*) OVER()`, instead of running the SELECT and then a separate `COUNT(*)` — that's the difference between one round trip and two, and it's the round trips that cost real latency as the table grows, not the SQL generation itself:
+
 ```go
-func (r *SQLProductRepository) FindByCriteria(ctx context.Context, c *specifications.Criteria) ([]*Product, error) {
-    qb := specifications.NewQueryBuilder("products")
-    qb.ApplyCriteria(c)
-    sql, args := qb.Build()
-    // execute sql with args...
+func (r *PostgresProductRepository) FindByCriteria(ctx context.Context, c *specifications.Criteria) ([]*Product, int, error) {
+    query, args := c.GetFullSQL("SELECT id, name, price, category, status, stock, COUNT(*) OVER() AS full_count FROM products")
+    query = rebindPlaceholders(query) // backbone-go's Specification.ToSQL emits "?" — pgx needs "$1, $2, ..."
+
+    rows, err := r.pool.Query(ctx, query, args...)
+    // scan rows into products, read full_count off the first row...
 }
 ```
 
-The application layer calls `repo.FindByCriteria(ctx, criteria)` in both cases — same call, different implementation. That is the whole point of the Repository Pattern.
+The application layer calls `repo.FindByCriteria(ctx, criteria)` in both cases — same call, different implementation, same `(products, total, error)` return shape. That is the whole point of the Repository Pattern — and why the total count is part of that one call instead of a second method entirely: the interface itself should make the fast shape the only shape.
+
+---
+
+## Deep paging: when OFFSET stops being enough
+
+`page`/`page_size` above is `LIMIT`/`OFFSET` under the hood — simple, gives you a `total_count`, and it's the right default. But `OFFSET` has a cost that grows with the offset: to return page 5,000, Postgres still has to scan and discard the 49,990 rows before it. Whether you fetch the count in one round trip or two, that scan happens regardless.
+
+For infinite-scroll feeds, activity logs, or any list a client pages deep into, backbone offers keyset ("cursor") pagination as an alternative — not a replacement, a different tool for a different access pattern:
+
+```
+GET /api/v1/products?cursor=&page_size=20&sort_by=price:desc
+```
+
+```json
+{
+  "meta":  { "status": "success", "status_code": 200, "message": "Products retrieved successfully" },
+  "items": [ { "id": "1", "price": 1999.0 }, ... ],
+  "page":  { "next_cursor": "eyJ2IjoxOTk5LjAsImlkIjoiMSJ9", "has_more": true }
+}
+```
+
+Pass `page.next_cursor` back as `cursor` to get the next page. No `total_count`, no `page` number — a keyset window can't produce a total without the very `COUNT` query this pattern exists to avoid, and there's no such thing as "page number 47" when you're seeking by position, not counting rows. That's a real trade-off, not an oversight: pick offset when you need a total or random-access page jumps, cursor when you're paging forward through a large or growing set.
+
+**Go:**
+```go
+import "github.com/FreakJazz/backbone/backbone-go/domain/specifications"
+
+// Encode a cursor from the last row of a page — sortValue is whatever that
+// row's sort field held, id is the row's unique id (the tiebreaker for
+// when the sort field repeats, e.g. two products at the same price).
+token, _ := specifications.EncodeCursor(lastProduct.Price, lastProduct.ID)
+
+// Decode it back on the next request
+sortValue, id, err := specifications.DecodeCursor(r.URL.Query().Get("cursor"))
+```
+
+**Python:**
+```python
+from backbone.domain.specifications import encode_cursor, decode_cursor
+
+token = encode_cursor(last_product.price, last_product.id)
+sort_value, id_ = decode_cursor(request.args.get("cursor"))
+```
+
+The token is opaque JSON-in-base64 (`{"v": ..., "id": ...}`) — the same wire format in both languages, but treat it as a black box regardless: it's not signed, not meant to be constructed by hand, just passed back verbatim. Decoding it gives you the raw sort value (a float, string, or bool from JSON) — converting that into the column's real type (a `float64` for price, a parsed `time.Time` for a timestamp field) is the repository's job, the same way it already owns turning a `Specification` into real SQL. The cursor package can't know your schema; the repository that queries it does.
+
+Building the actual keyset query is one extra `WHERE` fragment alongside whatever the `Specification` already produced:
+
+```go
+// desc sort: strictly-less-than; asc sort: strictly-greater-than.
+// The id tiebreak matters: without it, two rows tied on price could get
+// skipped or repeated across pages.
+where += " AND (price, id) < (?, ?)"
+args = append(args, sortValue, id)
+
+query := "SELECT ... FROM products WHERE " + where +
+    " ORDER BY price DESC, id DESC LIMIT " + strconv.Itoa(limit+1) // +1 to know if there's a next page for free
+```
 
 ---
 

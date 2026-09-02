@@ -4,7 +4,7 @@ Log Formatters - Formateadores para diferentes salidas
 import json
 import sys
 from typing import TextIO
-from .structured_logger import LogEntry, LogLevel
+from .structured_logger import LogEntry, LogLevel, format_timestamp_utc_z
 
 
 class BaseFormatter:
@@ -97,7 +97,7 @@ class CompactJSONFormatter(BaseFormatter):
 
     def format(self, entry: LogEntry) -> str:
         data = {
-            "ts": entry.timestamp.isoformat() + "Z",
+            "ts": format_timestamp_utc_z(entry.timestamp),
             "lvl": entry.level.value,
             "msg": entry.message,
         }

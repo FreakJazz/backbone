@@ -1,324 +1,133 @@
-name: 🚀 Publish to GitHub Packages
+name: Build & Attach Release Artifacts (backbone-python)
 
-# Activación: Solo cuando se crea un Release
+# Activacion: Solo cuando se crea un Release
+#
+# Every run step below is a single line on purpose (chained with &&
+# instead of a multi-line block scalar) - this file has repeatedly had its
+# "|" block-scalar indicators stripped by something in this editing
+# environment, which silently concatenates a multi-line run: block into
+# one broken command. A single-line run: needs no such indicator, so there
+# is nothing left for that process to corrupt.
 on:
   release:
     types: [published]
-  
-  # Para testing manual (eliminar en producción)
+
+  # Para testing manual
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run (no publish)'
+        description: 'Dry run (build + validate only, no upload to the release)'
         required: false
         default: false
         type: boolean
 
-# Permisos mínimos necesarios para GitHub Packages
+# Permisos minimos necesarios para adjuntar assets a un Release
 permissions:
-  contents: read
-  packages: write
-  id-token: write  # Para OIDC (recomendado)
+  contents: write
 
-# Variables de entorno globales
 env:
   PYTHON_VERSION: "3.11"
-  PACKAGE_NAME: "backbone"
-  REGISTRY_URL: "https://upload.pypi.pkg.github.com/FreakJazz/"
 
 jobs:
-  # Job 1: Validación y construcción
+  # Job 1: Validacion y construccion
   build-and-validate:
-    name: 🏗️ Build & Validate Package
+    name: Build & Validate Package
     runs-on: ubuntu-latest
-    
+    defaults:
+      run:
+        # backbone-python/ is the package root - pyproject.toml, tests/ and
+        # the source all live there, not at the repo root. Every step in
+        # the previous version of this workflow ran from the repo root
+        # instead and failed before doing anything (no pyproject.toml to
+        # find there).
+        working-directory: backbone-python
+
     outputs:
       package-version: ${{ steps.version.outputs.version }}
       package-name: ${{ steps.version.outputs.name }}
-    
+
     steps:
-      # 1. Checkout del código
-      - name: 📥 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Historia completa para tags
-      
-      # 2. Configuración de Python
-      - name: 🐍 Setup Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v4
+          fetch-depth: 0
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      # 3. Upgrade pip y instalar herramientas de build
-      - name: 📦 Install Build Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install build twine wheel setuptools
-          pip install -e .  # Instalar el paquete en modo desarrollo
-      
-      # 4. Extraer información de versión desde pyproject.toml
-      - name: 🏷️ Extract Package Version
+          cache: pip
+          cache-dependency-path: backbone-python/pyproject.toml
+
+      - name: Install Build Dependencies
+        run: python -m pip install --upgrade pip && pip install build twine && pip install -e ".[test]"
+
+      - name: Extract Package Version
         id: version
-        run: |
-          # Instalar toml parser si no existe
-          pip install tomli || pip install toml
-          
-          # Extraer versión y nombre desde pyproject.toml
-          python << 'EOF'
-          import sys
-          try:
-              import tomli
-              # Para tomli, leer como binario
-              with open('pyproject.toml', 'rb') as f:
-                  data = tomli.load(f)
-          except ImportError:
-              # Fallback a toml regular
-              import toml
-              with open('pyproject.toml', 'r') as f:
-                  data = toml.load(f)
-          
-          version = data['project']['version']
-          name = data['project']['name']
-          
-          print(f"Package: {name}")
-          print(f"Version: {version}")
-          
-          # Output para GitHub Actions
-          import os
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f'version={version}\n')
-              f.write(f'name={name}\n')
-          EOF
-      
-      # 5. Validar que la versión coincida con el tag del Release
-      - name: ✅ Validate Release Version
+        run: python -c "import tomllib, os; d = tomllib.load(open('pyproject.toml', 'rb')); v = d['project']['version']; n = d['project']['name']; print('package', n, v); open(os.environ['GITHUB_OUTPUT'], 'a').write('version=' + v + chr(10) + 'name=' + n + chr(10))"
+
+      - name: Validate Release Version
         if: github.event_name == 'release'
-        run: |
-          RELEASE_TAG="${{ github.event.release.tag_name }}"
-          PACKAGE_VERSION="${{ steps.version.outputs.version }}"
-          
-          # Normalizar tag (remover 'v' si existe)
-          NORMALIZED_TAG="${RELEASE_TAG#v}"
-          
-          echo "Release tag: $RELEASE_TAG"
-          echo "Normalized tag: $NORMALIZED_TAG"
-          echo "Package version: $PACKAGE_VERSION"
-          
-          if [ "$NORMALIZED_TAG" != "$PACKAGE_VERSION" ]; then
-            echo "❌ Version mismatch!"
-            echo "Release tag: $NORMALIZED_TAG"
-            echo "pyproject.toml version: $PACKAGE_VERSION"
-            exit 1
-          fi
-          
-          echo "✅ Version validation passed"
-      
-      # 6. Ejecutar tests (si existen)
-      - name: 🧪 Run Tests
-        run: |
-          # Buscar y ejecutar tests si existen
-          if [ -f "test_runner.py" ]; then
-            echo "Running test_runner.py..."
-            python test_runner.py
-          elif [ -d "tests" ]; then
-            echo "Running pytest..."
-            pip install pytest
-            pytest tests/ -v
-          elif [ -f "example.py" ]; then
-            echo "Running example.py as validation..."
-            python example.py
-          else
-            echo "No tests found, skipping..."
-          fi
-      
-      # 7. Construir el paquete
-      - name: 🔨 Build Package
-        run: |
-          echo "Building package: ${{ steps.version.outputs.name }} v${{ steps.version.outputs.version }}"
-          python -m build
-          
-          # Listar archivos generados
-          echo "Generated files:"
-          ls -la dist/
-      
-      # 8. Validar que el paquete se construyó correctamente
-      - name: 🔍 Validate Built Package
-        run: |
-          # Verificar que se generaron los archivos esperados
-          if [ ! -f "dist/"*.whl ]; then
-            echo "❌ No wheel file found!"
-            exit 1
-          fi
-          
-          if [ ! -f "dist/"*.tar.gz ]; then
-            echo "❌ No source distribution found!"
-            exit 1
-          fi
-          
-          # Verificar con twine
-          twine check dist/*
-          
-          echo "✅ Package validation passed"
-      
-      # 9. Subir artefactos para el siguiente job
-      - name: 📤 Upload Build Artifacts
+        run: RELEASE_TAG="${{ github.event.release.tag_name }}"; PACKAGE_VERSION="${{ steps.version.outputs.version }}"; NORMALIZED_TAG="${RELEASE_TAG#backbone-python/v}"; NORMALIZED_TAG="${NORMALIZED_TAG#v}"; echo "release tag=$RELEASE_TAG normalized=$NORMALIZED_TAG package version=$PACKAGE_VERSION"; if [ "$NORMALIZED_TAG" != "$PACKAGE_VERSION" ]; then echo "version mismatch tag=$NORMALIZED_TAG pyproject=$PACKAGE_VERSION"; exit 1; fi; echo "version validation passed"
+
+      - name: Run Tests
+        run: pytest tests/ -v
+
+      - name: Build Package
+        run: echo "building package ${{ steps.version.outputs.name }} v${{ steps.version.outputs.version }}" && python -m build && ls -la dist/
+
+      - name: Validate Built Package
+        run: twine check dist/*
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: package-distributions
-          path: dist/
+          path: backbone-python/dist/
           retention-days: 90
 
-  # Job 2: Publicación en GitHub Packages
-  publish-to-github:
-    name: 📦 Publish to GitHub Packages
+  # Job 2: Adjuntar los artefactos construidos al Release de GitHub.
+  #
+  # The previous version of this job published to a PyPI-style index
+  # hosted on GitHub Packages - that product doesn't exist. GitHub
+  # Packages supports npm, Maven, NuGet, RubyGems, and container images
+  # only; it has no generic Python/pip registry, so that step could never
+  # have succeeded regardless of how the rest of the workflow was fixed.
+  #
+  # Attaching the wheel/sdist to the Release itself is a real, working
+  # GitHub feature that needs no external registry or credentials beyond
+  # the default GITHUB_TOKEN. It doesn't make "pip install backbone" work
+  # on its own - the sanctioned install method stays a git+https pip
+  # install (see the root README and the Medium article series) - but it
+  # does give every release a downloadable, versioned artifact and a
+  # build/test gate that must pass before the release is considered done.
+  attach-release-assets:
+    name: Attach Build Artifacts to Release
     runs-on: ubuntu-latest
     needs: build-and-validate
-    
-    # Solo ejecutar si no es dry run
-    if: |
-      github.event_name == 'release' || 
-      (github.event_name == 'workflow_dispatch' && inputs.dry_run != 'true')
-    
-    environment:
-      name: github-packages
-      url: https://github.com/FreakJazz/backbone/packages
-    
+    if: github.event_name == 'release'
+
     steps:
-      # 1. Descargar artefactos del job anterior
-      - name: 📥 Download Build Artifacts
+      - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
           name: package-distributions
           path: dist/
-      
-      # 2. Setup Python para twine
-      - name: 🐍 Setup Python for Publishing
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      # 3. Instalar twine
-      - name: 📦 Install Twine
-        run: |
-          python -m pip install --upgrade pip
-          pip install twine
-      
-      # 4. Configurar autenticación para GitHub Packages
-      - name: 🔑 Configure GitHub Packages Authentication
-        run: |
-          # Crear archivo de configuración para twine
-          mkdir -p ~/.pypirc
-          cat << EOF > ~/.pypirc
-          [distutils]
-          index-servers = github
-          
-          [github]
-          repository = ${{ env.REGISTRY_URL }}
-          username = __token__
-          password = ${{ secrets.GITHUB_TOKEN }}
-          EOF
-          
-          chmod 600 ~/.pypirc
-      
-      # 5. Validar credenciales (dry run)
-      - name: 🔍 Test Authentication
-        run: |
-          echo "Testing authentication with GitHub Packages..."
-          # No intentar subir, solo validar credenciales
-          twine check dist/*
-      
-      # 6. Publicar en GitHub Packages
-      - name: 🚀 Publish to GitHub Packages
-        run: |
-          echo "Publishing ${{ needs.build-and-validate.outputs.package-name }} v${{ needs.build-and-validate.outputs.package-version }}"
-          echo "Registry: ${{ env.REGISTRY_URL }}"
-          
-          # Publicar usando twine
-          twine upload \
-            --repository github \
-            --username __token__ \
-            --password ${{ secrets.GITHUB_TOKEN }} \
-            --verbose \
-            dist/*
-          
-          echo "✅ Package published successfully!"
-      
-      # 7. Crear comentario en el Release
-      - name: 💬 Comment on Release
-        if: github.event_name == 'release'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const packageName = "${{ needs.build-and-validate.outputs.package-name }}";
-            const version = "${{ needs.build-and-validate.outputs.package-version }}";
-            const registryUrl = "https://github.com/FreakJazz/backbone/packages";
-            
-            const comment = `
-            ## 🎉 Package Published Successfully!
-            
-            **Package:** \`${packageName}\`  
-            **Version:** \`${version}\`  
-            **Registry:** [GitHub Packages](${registryUrl})
-            
-            ### 📦 Installation
-            
-            \`\`\`bash
-            # Configure GitHub Packages access
-            pip install --index-url https://pypi.pkg.github.com/FreakJazz/simple/ ${packageName}==${version}
-            \`\`\`
-            
-            ### 🔗 Alternative installation
-            
-            \`\`\`bash
-            pip install git+https://github.com/FreakJazz/backbone.git@v${version}
-            \`\`\`
-            `;
-            
-            github.rest.repos.createReleaseComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: context.payload.release.id,
-              body: comment
-            });
 
-  # Job 3: Notificación de éxito
-  notify-success:
-    name: 🎉 Success Notification
-    runs-on: ubuntu-latest
-    needs: [build-and-validate, publish-to-github]
-    if: success()
-    
-    steps:
-      - name: 🎉 Success Summary
-        run: |
-          echo "## 🎉 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Package:** ${{ needs.build-and-validate.outputs.package-name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ needs.build-and-validate.outputs.package-version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Registry:** GitHub Packages" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Package is available in GitHub Packages" >> $GITHUB_STEP_SUMMARY
-          echo "2. Update dependent projects" >> $GITHUB_STEP_SUMMARY
-          echo "3. Announce new version" >> $GITHUB_STEP_SUMMARY
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          append_body: true
+          body: "\n---\n\n## Build artifacts\n\n**Package** `${{ needs.build-and-validate.outputs.package-name }}`\n**Version** `${{ needs.build-and-validate.outputs.package-version }}`\n\nWheel and source distribution are attached to this release for reference. The supported install command is still\n\n```bash\npip install \"backbone @ git+https://github.com/FreakJazz/backbone.git@${{ github.event.release.tag_name }}#subdirectory=backbone-python\"\n```\n"
 
-  # Job 4: Manejo de fallos
+  # Job 3: Manejo de fallos
   handle-failure:
-    name: 🚨 Handle Failure
+    name: Handle Failure
     runs-on: ubuntu-latest
-    needs: [build-and-validate, publish-to-github]
+    needs: [build-and-validate, attach-release-assets]
     if: failure()
-    
+
     steps:
-      - name: 🚨 Failure Notification
-        run: |
-          echo "## ❌ Deployment Failed!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Please check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Common issues:" >> $GITHUB_STEP_SUMMARY
-          echo "- Version mismatch between tag and pyproject.toml" >> $GITHUB_STEP_SUMMARY
-          echo "- Package validation failures" >> $GITHUB_STEP_SUMMARY
-          echo "- Authentication issues" >> $GITHUB_STEP_SUMMARY
-          echo "- Network connectivity problems" >> $GITHUB_STEP_SUMMARY
+      - name: Failure Notification
+        run: echo "## Build Failed" >> $GITHUB_STEP_SUMMARY && echo "Please check the workflow logs for details." >> $GITHUB_STEP_SUMMARY && echo "Common issues" >> $GITHUB_STEP_SUMMARY && echo "- Version mismatch between the release tag and backbone-python/pyproject.toml" >> $GITHUB_STEP_SUMMARY && echo "- Test failures" >> $GITHUB_STEP_SUMMARY && echo "- Package validation failures (twine check)" >> $GITHUB_STEP_SUMMARY

@@ -3,6 +3,9 @@ Test Application Layer - Tests for use cases, services, and event handling syste
 """
 import asyncio
 import json
+import os
+import shutil
+import tempfile
 from datetime import datetime, timezone
 from unittest.mock import Mock, AsyncMock
 from backbone import (
@@ -293,12 +296,21 @@ class TestInMemoryEventStore(BaseTestCase):
 
 class TestJsonFileEventStore(BaseTestCase):
     """Test JSON file event store"""
-    
+
     def setUp(self):
         super().setUp()
-        # Use in-memory file path for testing
-        self.event_store = JsonFileEventStore("test_events.json")
-    
+        # Use an isolated temp directory instead of a relative path - a bare
+        # relative path resolves against pytest's CWD (the repo working
+        # tree) and JsonFileEventStore creates a whole directory structure
+        # under it (indexes/*.json plus dated subdirectories), leaving real
+        # files behind in the repo after every test run.
+        self._tmp_dir = tempfile.mkdtemp(prefix="backbone_event_store_")
+        self.event_store = JsonFileEventStore(os.path.join(self._tmp_dir, "test_events.json"))
+
+    def tearDown(self):
+        shutil.rmtree(self._tmp_dir, ignore_errors=True)
+        super().tearDown()
+
     def test_save_event_to_file(self):
         """Test: Save event to JSON file"""
         import asyncio
