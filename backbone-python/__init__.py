@@ -77,7 +77,7 @@ if __spec__ is not None and __spec__.parent != __package__:
 del _sys, _os, _types, _here
 
 # Framework version
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Backbone Framework Team"
 __license__ = "MIT"
 

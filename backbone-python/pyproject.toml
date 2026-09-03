@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "backbone"
-version = "0.1.0"
+version = "0.2.0"
 description = "Clean Architecture Framework with Event-Driven Microservices for Python"
 readme = "README.md"
 license = {text = "MIT"}
@@ -54,7 +54,9 @@ dev = [
     "black>=23.0.0",
     "isort>=5.12.0",
     "mypy>=1.0.0",
-    "flake8>=6.0.0"
+    "flake8>=6.0.0",
+    "ruff>=0.6.0",
+    "bandit>=1.7.0"
 ]
 
 test = [

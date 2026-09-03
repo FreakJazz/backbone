@@ -34,6 +34,25 @@ Server runs on **http://localhost:8005** (see `.env.example` to change it).
 | http://localhost:8005/docs/index.html | **Swagger UI** |
 | http://localhost:8005/api/v1/products | REST API |
 
+### Run fully dockerized
+
+No local Go toolchain needed — `Dockerfile` builds the app itself (its build
+context must be the **repo root**, since `go.mod` resolves `backbone-go` via
+a local `replace` directive rather than a tagged module — see the
+Dockerfile's header comment). The shared compose file can build and start it
+alongside Postgres/Mongo behind the `apps` profile (off by default, so the
+plain `up -d` above is unaffected):
+
+```bash
+docker compose -f ../../docker-compose.yml --profile apps up -d --build
+# → http://localhost:8005/docs/index.html
+```
+
+Inside the compose network the container reaches Postgres/Mongo by service
+name on their container ports (`postgres:5432`, `mongo:27017`) — set via
+environment overrides in `docker-compose.yml`, not `.env` (`.env` is for
+`go run main.go` on the host against the ports mapped there, `5433`/`27018`).
+
 ---
 
 ## Endpoints

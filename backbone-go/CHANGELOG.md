@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-09-03
+
+> Note: this is the first version actually cut as a git tag
+> (`backbone-go/v0.2.0`) — Go has no in-source version constant, only module
+> tags, and none had been pushed before this. The `[1.0.0]` entry below
+> describes the feature set as of the initial commit but was never tagged.
+> Versioning starts here for real, at `0.2.0`, to avoid re-using `1.0.0` for
+> a codebase that never actually shipped under that tag.
+
+### Fixed
+- **Module path** — declared as `github.com/freakjazz/backbone-go`, real
+  path `github.com/FreakJazz/backbone/backbone-go` — meant `go get` could
+  never resolve this module from outside the monorepo. Fixed across
+  `go.mod` and every import.
+
+### Added
+- 🔀 **Cursor (keyset) pagination** — `domain/specifications/cursor.go`
+  (`EncodeCursor`/`DecodeCursor`, opaque `base64({"v": ..., "id": ...})`
+  tokens, cross-decodable with backbone-python's implementation) and
+  `CursorPaginatedResponseBuilder` in `interfaces/responses/response_builders.go`.
+  Existing offset pagination (`Limit`/`Offset` on `Criteria`) is unchanged;
+  this is an additive alternative for deep paging without the `OFFSET` cost.
+- 🧰 `PaginatedResponseBuilder.Success`/`SimpleObjectResponseBuilder.Found`
+  changed from hard-typed `map[string]interface{}` to `any` — Go has no
+  generic methods, so this (not a generic signature) is what lets a caller
+  pass a tagged struct/slice straight through instead of flattening it into
+  a map first.
+
+### Infrastructure
+- Added `.github/workflows/ci.yml` — build/vet/test gate on every push and
+  PR (previously only `publish.yml` existed, and only ever fires behind a
+  GitHub Release this project has never cut).
+- Added `.github/workflows/sonarcloud.yml` + root `sonar-project.properties`
+  (SonarCloud, CI-facing) and `docker-compose.sonarqube.yml` +
+  `sonar-project.local.properties` (self-hosted SonarQube via Docker,
+  broader scope including the `examples/` apps, with `golangci-lint`
+  findings layered on top of Sonar's own rules — see
+  `scripts/run-sonar-local.*` and root `.golangci.yml`).
+
 ## [1.0.0] - 2024-12-01
 
 ### Added

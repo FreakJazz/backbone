@@ -1,0 +1,18 @@
+# Repo-root .dockerignore — applies when building clean-api-go with the
+# repo root as build context (required by its go.mod `replace` directive;
+# see examples/go/clean-api-go/Dockerfile).
+.git/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/node_modules/
+backbone-python/htmlcov/
+backbone-python/*.egg-info/
+backbone-python/coverage.xml
+backbone-python/.pytest_cache/
+backbone-go/coverage.out
+backbone-go/coverage.html
+examples/python/**/.venv/
+**/.DS_Store
+*.md

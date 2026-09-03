@@ -1,0 +1,7 @@
+# Test/coverage/lint artifacts (see scripts/run-sonar-local.*)
+coverage.out
+coverage.html
+golangci-lint-report.json
+
+# Local env
+.env

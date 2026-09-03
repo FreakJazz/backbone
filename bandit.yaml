@@ -1,0 +1,21 @@
+# Bandit (Python security linter) configuration for backbone-python and
+# examples/python/clean_api_python.
+#
+# Run:
+#   bandit -c bandit.yaml -r backbone-python examples/python/clean_api_python -f json -o bandit-report.json
+#
+# scripts/run-sonar-local.* runs this and feeds the report to SonarQube via
+# sonar.python.bandit.reportPaths in sonar-project.local.properties.
+
+exclude_dirs:
+  - tests
+  - .venv
+  - venv
+  - __pycache__
+  - htmlcov
+
+skips:
+  # B104: binding to 0.0.0.0 is the correct choice for a containerized
+  # example service meant to be reachable from outside its container
+  # (clean_api_python/main.py) — flagging it here would just be noise.
+  - B104

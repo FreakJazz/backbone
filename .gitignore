@@ -213,3 +213,10 @@ __marimo__/
 # ever writing real files into the working tree again.
 /backbone-python/events/
 /backbone-python/test_events.json/
+
+# Local strict-mode lint/scan reports (see scripts/run-sonar-local.*) —
+# generated on demand, consumed once by the local SonarQube scanner, never
+# meant to be committed.
+/ruff-report.json
+/bandit-report.json
+/mypy-report.txt

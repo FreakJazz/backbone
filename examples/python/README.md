@@ -28,8 +28,28 @@ python main.py
 # → http://localhost:5000/docs
 ```
 
-`backbone` is installed for real from GitHub via pip (see `requirements.txt`)
-— no sys.path/sys.modules shim needed.
+`backbone` is installed for real from GitHub via pip (a plain HTTPS tarball
+URL in `requirements.txt`, not `git+https://` — no `git` binary needed on
+the host or in the Docker image below) — no sys.path/sys.modules shim
+needed.
+
+### Run fully dockerized
+
+No local Python/venv needed — `clean_api_python/Dockerfile` builds the app
+itself, and the shared compose file can start it alongside Postgres/Mongo
+behind the `apps` profile (off by default, so the plain `up -d` above is
+unaffected):
+
+```bash
+docker compose -f ../docker-compose.yml --profile apps up -d --build
+# → http://localhost:5000/docs
+```
+
+Inside the compose network the container reaches Postgres/Mongo by service
+name on their container ports (`postgres:5432`, `mongo:27017`) — this is set
+via environment overrides in `docker-compose.yml`, not `.env` (`.env` is for
+running `python main.py` on the host against the ports mapped there,
+`5433`/`27018`).
 
 ## Endpoints
 

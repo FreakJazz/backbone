@@ -1,0 +1,47 @@
+# Strict Ruff configuration for backbone-python and
+# examples/python/clean_api_python. One root config covers both — ruff
+# doesn't need a per-package pyproject.toml, it walks up from whatever path
+# you point it at.
+#
+# Run:
+#   ruff check backbone-python examples/python/clean_api_python --output-format=json > ruff-report.json
+#
+# scripts/run-sonar-local.* runs this and feeds the report to SonarQube via
+# sonar.python.ruff.reportPaths in sonar-project.local.properties.
+
+target-version = "py311"
+line-length = 100
+
+exclude = [
+    ".venv", "venv", "__pycache__", "build", "dist", "*.egg-info",
+    "backbone-python/htmlcov",
+]
+
+[lint]
+# "ALL" plus a short, justified ignore list reads clearer over time than
+# hand-picking codes one at a time and wondering later why a category was
+# never turned on.
+select = ["ALL"]
+ignore = [
+    "D",        # pydocstyle — docstrings are inconsistent across this codebase
+                # by design (bilingual ES/EN comments); not a correctness rule.
+    "ANN",      # flake8-annotations — mypy (strict mode, see pyproject.toml)
+                # already owns type-completeness; duplicating it here as lint
+                # errors would just be the same finding twice.
+    "COM812",   # trailing-comma — conflicts with the formatter's own choice
+    "ISC001",   # implicit-str-concat — same, formatter-conflicting rule
+    "FIX",      # flags TODO/FIXME comments as errors — those are intentional
+                # markers in this codebase (e.g. base_repository.py), not lint debt
+    "TD",       # todo-format nitpicks, same reasoning as FIX above
+]
+
+[lint.per-file-ignores]
+"**/tests/*" = [
+    "S101",     # assert — that's the entire point of a test
+    "PLR2004",  # magic-value-comparison — literal expected values in
+                # assertions are the test, not a smell
+]
+"**/test_*.py" = ["S101", "PLR2004"]
+
+[lint.isort]
+known-first-party = ["backbone"]

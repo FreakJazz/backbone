@@ -14,6 +14,9 @@ bin/
 coverage.html
 coverage.out
 
+# golangci-lint report (see scripts/run-sonar-local.*)
+golangci-lint-report.json
+
 # Dependency directories
 vendor/
 

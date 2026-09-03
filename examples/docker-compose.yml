@@ -1,16 +1,28 @@
 # Shared infra for the DB-backed examples:
-#   - go/clean-api-postgres-mongo-go
-#   - python/clean_api_postgres_mongo_python
+#   - go/clean-api-go
+#   - python/clean_api_python
 #
 # Both examples point at the same Postgres/Mongo instances (see each
 # example's .env.example) — they use the same schema/collections, so running
 # either one (or both, against the same data) works the same way two
-# microservices in different languages would share infrastructure.
+# microservices in different languages would share infrastructure. One
+# compose file for both, not one per language, for the same reason: they're
+# not two unrelated stacks, they're two clients of the same infra.
 #
 # Usage:
+#   # Infra only (Postgres + Mongo + Adminer + Mongo Express) — the default.
+#   # Run the APIs yourself with `go run main.go` / `python main.py` against
+#   # the host-mapped ports below (5433/27018) — see each example's README.
 #   docker compose -f examples/docker-compose.yml up -d
-#   docker compose -f examples/docker-compose.yml down        # stop
-#   docker compose -f examples/docker-compose.yml down -v     # stop + wipe data
+#
+#   # Infra + both APIs, fully dockerized (built from each example's own
+#   # Dockerfile). Inside the compose network the apps reach Postgres/Mongo
+#   # by service name on their *container* ports (5432/27017), not the
+#   # host-mapped ones above.
+#   docker compose -f examples/docker-compose.yml --profile apps up -d --build
+#
+#   docker compose -f examples/docker-compose.yml down          # stop
+#   docker compose -f examples/docker-compose.yml down -v       # stop + wipe data
 
 services:
   postgres:
@@ -67,6 +79,48 @@ services:
       - "8082:8081"
     depends_on:
       - mongo
+
+  # ── Dockerized apps — opt-in via `--profile apps`, off by default ──────────
+  # Kept behind a profile rather than always-on so the documented local-dev
+  # flow (`go run main.go` / `python main.py` against the host-mapped ports
+  # above) keeps working exactly as before for anyone who hasn't asked for
+  # the fully-containerized path.
+  go-api:
+    build:
+      context: ..                                  # repo root — see Dockerfile header
+      dockerfile: examples/go/clean-api-go/Dockerfile
+    container_name: backbone-go-api
+    profiles: ["apps"]
+    environment:
+      POSTGRES_DSN: postgres://backbone:backbone@postgres:5432/backbone_products?sslmode=disable
+      MONGO_URI: mongodb://backbone:backbone@mongo:27017
+      MONGO_DB: backbone_transactions
+      PORT: 8005
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  python-api:
+    build:
+      context: ./python/clean_api_python
+    container_name: backbone-python-api
+    profiles: ["apps"]
+    environment:
+      POSTGRES_DSN: postgresql://backbone:backbone@postgres:5432/backbone_products
+      MONGO_URI: mongodb://backbone:backbone@mongo:27017
+      MONGO_DB: backbone_transactions
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
 
 volumes:
   backbone_postgres_data:

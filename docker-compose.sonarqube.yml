@@ -1,0 +1,90 @@
+# Self-hosted SonarQube, as a Docker image — local/manual strict static
+# analysis, separate from CI (CI keeps using SonarCloud, see
+# .github/workflows/sonarcloud.yml and sonar-project.properties). This one
+# scans the whole repo, examples/ included, against sonar-project.local.properties
+# with golangci-lint/ruff/bandit/mypy findings layered on top of Sonar's own
+# rules — see that file's header comment for the full rationale.
+#
+# One-time setup:
+#   1. docker compose -f docker-compose.sonarqube.yml up -d
+#   2. Wait ~60-90s for first boot (Elasticsearch init), then open
+#      http://localhost:9000 — log in with admin/admin, set a new password
+#      when prompted.
+#   3. My Account > Security > Generate token (any name) — export it:
+#        # bash/git-bash
+#        export SONAR_TOKEN=squ_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#        # PowerShell
+#        $env:SONAR_TOKEN = "squ_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#
+# Then, on every scan:
+#   scripts/run-sonar-local.sh     (bash/git-bash)
+#   scripts/run-sonar-local.ps1    (PowerShell)
+# — both generate coverage + golangci-lint/ruff/bandit/mypy reports first,
+# then run the `scanner` service below. Results appear at
+# http://localhost:9000/dashboard?id=backbone-local.
+#
+# Linux hosts only: SonarQube's bundled Elasticsearch needs
+# `sysctl -w vm.max_map_count=262144` on the Docker HOST (not the container)
+# before first start, or it exits immediately. Not needed on Docker Desktop
+# (Windows/Mac) — its VM already sets this high enough.
+#
+# Teardown: docker compose -f docker-compose.sonarqube.yml down
+#           docker compose -f docker-compose.sonarqube.yml down -v   # + wipe analysis history
+
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: backbone-sonarqube
+    depends_on:
+      - sonarqube-db
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    ports:
+      - "9000:9000"
+    volumes:
+      - backbone_sonarqube_data:/opt/sonarqube/data
+      - backbone_sonarqube_extensions:/opt/sonarqube/extensions
+      - backbone_sonarqube_logs:/opt/sonarqube/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  sonarqube-db:
+    image: postgres:16-alpine
+    container_name: backbone-sonarqube-db
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - backbone_sonarqube_db_data:/var/lib/postgresql/data
+
+  # Opt-in — `docker compose -f docker-compose.sonarqube.yml run --rm scanner`
+  # (scripts/run-sonar-local.* do this for you after generating reports).
+  # Not part of `up`/`up -d` since it's a one-shot job, not a long-running
+  # service.
+  scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    container_name: backbone-sonar-scanner
+    profiles: ["scan"]
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+    environment:
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN:?set SONAR_TOKEN first - see this file's header comment}
+      SONAR_SCANNER_OPTS: -Dproject.settings=/usr/src/sonar-project.local.properties
+    volumes:
+      - .:/usr/src
+    working_dir: /usr/src
+
+volumes:
+  backbone_sonarqube_data:
+  backbone_sonarqube_extensions:
+  backbone_sonarqube_logs:
+  backbone_sonarqube_db_data:

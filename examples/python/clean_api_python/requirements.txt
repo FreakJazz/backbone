@@ -6,6 +6,9 @@ pymongo>=4.7.0
 python-dotenv>=1.0.0
 
 # backbone, installed for real from GitHub (not vendored, no sys.path shim —
-# see main.py). Pin to a commit/tag once backbone-python cuts a release; for
-# now this tracks main.
-git+https://github.com/FreakJazz/backbone.git@main#subdirectory=backbone-python
+# see main.py). A plain HTTPS tarball URL rather than a git+https:// one:
+# pip fetches and unpacks it directly, so no `git` binary needs to be present
+# on the host or (notably) baked into the Docker image just for this one
+# install step. Pin to a commit/tag once backbone-python cuts a release; for
+# now this tracks main (swap /heads/main.tar.gz for /tags/vX.Y.Z.tar.gz then).
+backbone @ https://github.com/FreakJazz/backbone/archive/refs/heads/main.tar.gz#subdirectory=backbone-python

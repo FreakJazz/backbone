@@ -1,0 +1,52 @@
+# Strict golangci-lint configuration for backbone-go and examples/go/clean-api-go.
+#
+# Run separately per module (each has its own go.mod) from that module's
+# directory — golangci-lint resolves this file by walking up from the
+# working directory, so it's found from either location without copies:
+#   cd backbone-go              && golangci-lint run --out-format json > golangci-lint-report.json
+#   cd examples/go/clean-api-go && golangci-lint run --out-format json > golangci-lint-report.json
+#
+# scripts/run-sonar-local.* runs both and feeds the reports to SonarQube via
+# sonar.go.golangci-lint.reportPaths in sonar-project.local.properties.
+
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    # Default set
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    # Strictness on top of the defaults
+    - gosec         # security
+    - revive        # stricter, configurable golint successor
+    - gocritic       # style/perf/correctness diagnostics
+    - bodyclose      # unclosed HTTP response bodies — easy real bug in handlers
+    - errorlint      # errors.Is/As usage instead of naive comparisons
+    - exhaustive     # switch statements over enums must be exhaustive
+    - misspell
+    - unconvert      # unnecessary type conversions
+    - unparam        # unused function parameters
+    - noctx          # HTTP requests without context.Context
+    - sqlclosecheck  # unclosed *sql.Rows / *sql.Stmt
+    - copyloopvar    # Go 1.22+ loop-variable capture bugs
+
+linters-settings:
+  govet:
+    enable-all: true
+  gosec:
+    excludes:
+      - G404 # math/rand is fine for seed data (product_seeder.go), not security tokens
+  revive:
+    severity: warning
+    confidence: 0.8
+
+issues:
+  exclude-dirs:
+    - docs
+  max-issues-per-linter: 0
+  max-same-issues: 0

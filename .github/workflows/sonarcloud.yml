@@ -1,0 +1,62 @@
+name: SonarCloud
+
+# Separate from ci.yml on purpose: ci.yml is the pass/fail gate every push
+# and PR must clear regardless of whether SonarCloud is configured for this
+# fork; this workflow additionally needs a SONAR_TOKEN repo secret, which a
+# fork won't have, so it stays split out and non-blocking for that case.
+#
+# Requires (one-time setup, not done by this file):
+#   - A SonarCloud project matching sonar-project.properties at the repo
+#     root (sonar.organization / sonar.projectKey).
+#   - A SONAR_TOKEN repository secret (Settings > Secrets and variables >
+#     Actions) generated from SonarCloud > My Account > Security.
+#
+# Every run step is a single line (chained with && instead of a multi-line
+# block scalar) for the same reason as ci.yml/publish.yml in this repo — see
+# the comment in ci.yml.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    # A pull_request from a fork has no access to repository secrets, so
+    # SONAR_TOKEN is unset there — skip rather than fail a scan that could
+    # never authenticate.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: backbone-go/go.sum
+
+      - name: Go test with coverage
+        working-directory: backbone-go
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backbone-python/pyproject.toml
+
+      - name: Python test with coverage
+        working-directory: backbone-python
+        run: python -m pip install --upgrade pip && pip install -e ".[test]" && pytest tests/ --cov=backbone --cov-report=xml --cov-report=term-missing
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

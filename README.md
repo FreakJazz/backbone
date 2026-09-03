@@ -6,6 +6,8 @@
 ![Go](https://img.shields.io/badge/go-1.21%2B-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-beta-orange)
+[![CI](https://github.com/FreakJazz/backbone/actions/workflows/ci.yml/badge.svg)](https://github.com/FreakJazz/backbone/actions/workflows/ci.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=FreakJazz_backbone&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=FreakJazz_backbone)
 
 Both implementations share **identical JSON contracts** — the same error shape, the same log fields, the same filter operators — so your Go and Python services are interoperable out of the box.
 
@@ -16,9 +18,25 @@ Both implementations share **identical JSON contracts** — the same error shape
 | | Python | Go |
 |---|---|---|
 | Folder | [`backbone-python/`](./backbone-python/README.md) | [`backbone-go/`](./backbone-go/README.md) |
-| Install | `pip install backbone-python==0.1.0` | `go get github.com/FreakJazz/backbone/backbone-go@v0.1.0` |
-| Tests | 94 passed | 8 packages, all green |
+| Install | `pip install "backbone @ https://github.com/FreakJazz/backbone/archive/refs/tags/backbone-python/v0.2.0.tar.gz#subdirectory=backbone-python"` | `go get github.com/FreakJazz/backbone/backbone-go@backbone-go/v0.2.0` |
+| Tests | 102 passed | 8 packages, all green |
 | Example | [`examples/python/clean_api_python/`](./examples/python/clean_api_python/) | [`examples/go/clean-api-go/`](./examples/go/clean-api-go/) |
+
+> **The `backbone-python/v0.2.0` / `backbone-go/v0.2.0` tags above don't
+> exist on GitHub yet** — this repo has never cut a git tag. Until one is
+> pushed, `go get ...@backbone-go/v0.2.0` has nothing to resolve to, and a
+> consumer installing from `@main` (branch, not a tag) always gets whatever
+> is newest on `main` regardless of what `__version__`/`pyproject.toml` say
+> — bumping that string alone doesn't signal a new version to anyone. Tag
+> and push once ready:
+> ```bash
+> git tag backbone-go/v0.2.0 && git tag backbone-python/v0.2.0
+> git push origin backbone-go/v0.2.0 backbone-python/v0.2.0
+> ```
+> After that, pin your *other* projects' `go.mod`/`requirements.txt` to
+> these tags (not `@main` / `archive/refs/heads/main.tar.gz`) — that pin is
+> what actually makes "there's a new version" a decision you make on
+> purpose, instead of every install silently tracking `main`.
 
 ---
 
@@ -302,6 +320,38 @@ cd examples/go/clean-api-go
 go mod tidy && swag init && go run main.go
 # http://localhost:8005/docs/index.html
 ```
+
+---
+
+## Run examples fully dockerized
+
+Both examples also ship a `Dockerfile` and can run against the shared
+Postgres/Mongo stack without a local Go toolchain or Python venv:
+
+```bash
+docker compose -f examples/docker-compose.yml --profile apps up -d --build
+# Go     → http://localhost:8005/docs/index.html
+# Python → http://localhost:5000/docs
+```
+
+See [`examples/docker-compose.yml`](./examples/docker-compose.yml) and each
+example's README for the plain (non-`apps`-profile) infra-only flow used
+above in **Run examples**.
+
+---
+
+## Quality & CI
+
+- **[`ci.yml`](./.github/workflows/ci.yml)** — build, vet and test
+  `backbone-go` and `backbone-python` (matrixed on Python 3.11/3.12) on every
+  push to `main` and every pull request.
+- **[`sonarcloud.yml`](./.github/workflows/sonarcloud.yml)** — runs both
+  suites with coverage and submits them to SonarCloud per
+  [`sonar-project.properties`](./sonar-project.properties) (scoped to the two
+  libraries, not the `examples/` apps). Needs a `SONAR_TOKEN` repository
+  secret; skipped automatically on PRs from forks, which can't see it.
+- **[`publish.yml`](./.github/workflows/publish.yml)** — builds and attaches
+  `backbone-python`'s wheel/sdist to a GitHub Release.
 
 ---
 
