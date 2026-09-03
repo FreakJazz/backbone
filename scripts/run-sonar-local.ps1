@@ -15,14 +15,23 @@ if (-not $env:SONAR_TOKEN) {
     exit 1
 }
 
+# `go test ./... -coverprofile=...` produces no file at all here: both Go
+# modules' tests live in external test packages under tests/ (exercising
+# the library through its public API, not from inside each package), so
+# `./...` also matches every production package directory, which has no
+# _test.go files of its own — go test never merges a coverage profile in
+# that mixed shape (verified: silently no coverage.out, no error). Scoping
+# the *test target* to ./tests/... while using -coverpkg=./... to still
+# instrument (and attribute coverage to) the production packages is what
+# actually produces a valid, non-empty profile.
 Write-Host "==> Go: backbone-go coverage"
 Push-Location backbone-go
-go test ./... -coverprofile=coverage.out -covermode=atomic
+& go test "./tests/..." "-coverpkg=./..." "-coverprofile=coverage.out" "-covermode=atomic"
 Pop-Location
 
 Write-Host "==> Go: examples/go/clean-api-go coverage"
 Push-Location examples/go/clean-api-go
-go test ./tests/... -coverprofile=coverage.out -covermode=atomic
+& go test "./tests/..." "-coverpkg=./..." "-coverprofile=coverage.out" "-covermode=atomic"
 Pop-Location
 
 Write-Host "==> Go: golangci-lint (backbone-go)"
@@ -35,10 +44,18 @@ Push-Location examples/go/clean-api-go
 golangci-lint run --out-format json | Out-File -Encoding utf8 golangci-lint-report.json
 Pop-Location
 
+# Run from the repo root (not `cd backbone-python; pytest tests/`) so
+# coverage.py's `relative_files = true` (pyproject.toml) records paths
+# relative to the repo root ("backbone-python/domain/...") — matching what
+# sonar.sources expects. Run from inside backbone-python instead and the
+# same setting records paths relative to *that* directory ("domain/...",
+# "conftest.py"), which the scanner then can't resolve at all (verified:
+# every file's coverage measure silently dropped, "Cannot resolve the file
+# path 'conftest.py'"). --cov-config is explicit because coverage.py's own
+# config auto-discovery looks in the current directory (the repo root here,
+# which has no [tool.coverage] section of its own).
 Write-Host "==> Python: backbone-python coverage"
-Push-Location backbone-python
-python -m pytest tests/ --cov=backbone --cov-report=xml
-Pop-Location
+python -m pytest backbone-python/tests --cov=backbone --cov-config=backbone-python/pyproject.toml --cov-report=xml:backbone-python/coverage.xml --cov-report=html:backbone-python/htmlcov
 
 Write-Host "==> Python: ruff"
 ruff check backbone-python examples/python/clean_api_python --output-format=json | Out-File -Encoding utf8 ruff-report.json

@@ -15,11 +15,20 @@ if [ -z "${SONAR_TOKEN:-}" ]; then
   exit 1
 fi
 
+# `go test ./... -coverprofile=...` produces no file at all here: both Go
+# modules' tests live in external test packages under tests/ (exercising
+# the library through its public API, not from inside each package), so
+# `./...` also matches every production package directory, which has no
+# _test.go files of its own — go test never merges a coverage profile in
+# that mixed shape (verified: silently no coverage.out, no error). Scoping
+# the *test target* to ./tests/... while using -coverpkg=./... to still
+# instrument (and attribute coverage to) the production packages is what
+# actually produces a valid, non-empty profile.
 echo "==> Go: backbone-go coverage"
-(cd backbone-go && go test ./... -coverprofile=coverage.out -covermode=atomic)
+(cd backbone-go && go test ./tests/... -coverpkg=./... -coverprofile=coverage.out -covermode=atomic)
 
 echo "==> Go: examples/go/clean-api-go coverage"
-(cd examples/go/clean-api-go && go test ./tests/... -coverprofile=coverage.out -covermode=atomic)
+(cd examples/go/clean-api-go && go test ./tests/... -coverpkg=./... -coverprofile=coverage.out -covermode=atomic)
 
 echo "==> Go: golangci-lint (backbone-go)"
 (cd backbone-go && golangci-lint run --out-format json > golangci-lint-report.json || true)
@@ -27,8 +36,18 @@ echo "==> Go: golangci-lint (backbone-go)"
 echo "==> Go: golangci-lint (examples/go/clean-api-go)"
 (cd examples/go/clean-api-go && golangci-lint run --out-format json > golangci-lint-report.json || true)
 
+# Run from the repo root (not `cd backbone-python && pytest tests/`) so
+# coverage.py's `relative_files = true` (pyproject.toml) records paths
+# relative to the repo root ("backbone-python/domain/...") — matching what
+# sonar.sources expects. Run from inside backbone-python instead and the
+# same setting records paths relative to *that* directory ("domain/...",
+# "conftest.py"), which the scanner then can't resolve at all (verified:
+# every file's coverage measure silently dropped, "Cannot resolve the file
+# path 'conftest.py'"). --cov-config is explicit because coverage.py's own
+# config auto-discovery looks in the current directory (the repo root here,
+# which has no [tool.coverage] section of its own).
 echo "==> Python: backbone-python coverage"
-(cd backbone-python && python -m pytest tests/ --cov=backbone --cov-report=xml)
+python -m pytest backbone-python/tests --cov=backbone --cov-config=backbone-python/pyproject.toml --cov-report=xml:backbone-python/coverage.xml --cov-report=html:backbone-python/htmlcov
 
 echo "==> Python: ruff"
 ruff check backbone-python examples/python/clean_api_python --output-format=json > ruff-report.json || true

@@ -1,9 +1,14 @@
 name: SonarCloud
 
-# Separate from ci.yml on purpose: ci.yml is the pass/fail gate every push
-# and PR must clear regardless of whether SonarCloud is configured for this
-# fork; this workflow additionally needs a SONAR_TOKEN repo secret, which a
-# fork won't have, so it stays split out and non-blocking for that case.
+# Manual-trigger only — NOT run on every push/PR. SonarCloud's free tier is
+# public-repos-only; a private repo needs a paid plan, which is exactly what
+# this project is avoiding by using the free, self-hosted alternative
+# instead: docker-compose.sonarqube.yml + scripts/run-sonar-local.* (see the
+# root README's "Quality & CI" section). This workflow is kept, unused, for
+# if that ever changes (repo goes public, or a paid plan gets added) — run
+# it by hand from the Actions tab ("Run workflow") once it's actually set up
+# (SonarCloud project + SONAR_TOKEN secret, see below); it costs nothing to
+# leave in place while dormant.
 #
 # Requires (one-time setup, not done by this file):
 #   - A SonarCloud project matching sonar-project.properties at the repo
@@ -15,19 +20,12 @@ name: SonarCloud
 # block scalar) for the same reason as ci.yml/publish.yml in this repo — see
 # the comment in ci.yml.
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   sonarcloud:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
-    # A pull_request from a fork has no access to repository secrets, so
-    # SONAR_TOKEN is unset there — skip rather than fail a scan that could
-    # never authenticate.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -41,8 +39,18 @@ jobs:
           cache-dependency-path: backbone-go/go.sum
 
       - name: Go test with coverage
+        # `go test ./... -coverprofile=...` doesn't produce a coverage.out
+        # here: backbone-go's tests live in external test packages under
+        # tests/ (they exercise the library through its public API, not
+        # from inside each package), so `./...` also matches every
+        # production package directory, which has no _test.go files of its
+        # own — go test never merges a coverage profile in that mixed shape.
+        # Scoping the *test target* to ./tests/... while using -coverpkg=./...
+        # to still instrument (and attribute coverage to) the production
+        # packages is what actually produces a valid, non-empty profile —
+        # verified locally (53.3% total, vs. a silently-missing file before).
         working-directory: backbone-go
-        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+        run: go test ./tests/... -coverpkg=./... -coverprofile=coverage.out -covermode=atomic
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -56,7 +64,18 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -e ".[test]" && pytest tests/ --cov=backbone --cov-report=xml --cov-report=term-missing
 
       - name: SonarCloud Scan
+        # Skips (green, not red) rather than failing when the one-time setup
+        # this workflow depends on hasn't happened yet: a SonarCloud project
+        # matching sonar-project.properties's organization/projectKey, and a
+        # SONAR_TOKEN repo secret generated for it. Without this guard every
+        # push/PR fails CI for a setup step no code change here can fix —
+        # see the root README's "Quality & CI" section for the setup steps.
+        if: ${{ secrets.SONAR_TOKEN != '' }}
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarCloud not configured
+        if: ${{ secrets.SONAR_TOKEN == '' }}
+        run: echo "::warning::Skipping SonarCloud scan - SONAR_TOKEN repo secret is not set. See the root README's Quality & CI section for one-time setup."

@@ -183,6 +183,15 @@ markers = [
 
 [tool.coverage.run]
 source = ["backbone"]
+# Without this, coverage.py bakes the absolute path it ran from into
+# coverage.xml's <source> element (e.g. "C:\Users\...\backbone-python" on a
+# Windows host). Any consumer reading that file from a different absolute
+# path — the SonarQube scanner container, mounted at /usr/src, or a CI
+# runner's own workspace path — can't resolve most files back to their
+# coverage data and silently drops their measurements. relative_files makes
+# coverage.py record paths relative to the project root instead, so the
+# report resolves the same way regardless of who reads it or from where.
+relative_files = true
 omit = [
     "*/tests/*",
     "*/test_*",
