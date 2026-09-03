@@ -36,9 +36,29 @@ def register_routes(
     register_movement_cmd: RegisterStockMovementCommandHandler,
     list_movements_qry: GetStockMovementsQueryHandler,
 ) -> None:
+    _register_error_handler(api)
     _register_product_routes(api, create_cmd, update_cmd, delete_cmd, status_cmd, list_qry, page_qry, detail_qry)
     _register_sale_routes(api, register_sale_cmd, list_sales_qry)
     _register_stock_movement_routes(api, register_movement_cmd, list_movements_qry)
+
+
+def _register_error_handler(api: Api) -> None:
+    """Single, centralized mapping from any exception raised inside a
+    resource method to backbone's error contract — the same
+    ErrorResponseBuilder.from_exception(...) that used to be copy-pasted
+    into every `get`/`post`/`put`/`patch`/`delete` method below (11 identical
+    try/except blocks). flask-restx routes every exception a resource method
+    raises through the handler registered here instead, so this is the one
+    and only place that decides how errors look — exactly the point of
+    having a shared response builder in the first place. Command/query
+    handlers raise typed backbone exceptions (ValidationException,
+    ResourceNotFoundException, ...); from_exception already knows how to
+    read those, and falls back to a safe generic 500 for anything else."""
+
+    @api.errorhandler
+    def _handle_any_exception(exc: Exception):
+        err = ErrorResponseBuilder.from_exception(exc)
+        return err, err["status_code"]
 
 
 def _register_product_routes(
@@ -88,67 +108,55 @@ def _register_product_routes(
             recommended for deep paging, since it doesn't degrade as the
             offset grows. The two modes are mutually exclusive: cursor,
             when present, wins."""
-            try:
-                if "cursor" in request.args:
-                    return self._get_by_cursor()
-                query = GetProductsQuery(
-                    filters=request.args.getlist("filters"),
-                    sort_by=request.args.get("sort_by"),
-                    page=int(request.args.get("page", 1)),
-                    page_size=int(request.args.get("page_size", 10)),
-                )
-                result = list_qry.handle(query)
-                return PaginatedResponseBuilder.success(
-                    items=result.items,
-                    total_count=result.total_count,
-                    page=result.page,
-                    page_size=result.page_size,
-                    message="Products retrieved successfully",
-                ), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            if "cursor" in request.args:
+                return self._get_by_cursor()
+            query = GetProductsQuery(
+                filters=request.args.getlist("filters"),
+                sort_by=request.args.get("sort_by"),
+                page=int(request.args.get("page", 1)),
+                page_size=int(request.args.get("page_size", 10)),
+            )
+            result = list_qry.handle(query)
+            return PaginatedResponseBuilder.success(
+                items=result.items,
+                total_count=result.total_count,
+                page=result.page,
+                page_size=result.page_size,
+                message="Products retrieved successfully",
+            ), 200
 
         def _get_by_cursor(self):
             """Keyset path: no total_count/page (a keyset window can't
             produce a total without an extra COUNT query, which would
             defeat the point) — just the page and, if there's more, a
             cursor for the next one."""
-            try:
-                query = GetProductsPageQuery(
-                    filters=request.args.getlist("filters"),
-                    sort_by=request.args.get("sort_by"),
-                    cursor=request.args.get("cursor") or None,
-                    page_size=int(request.args.get("page_size", 10)),
-                )
-                result = page_qry.handle(query)
-                return CursorPaginatedResponseBuilder.success(
-                    items=result.items,
-                    next_cursor=result.next_cursor,
-                    message="Products retrieved successfully",
-                ), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            query = GetProductsPageQuery(
+                filters=request.args.getlist("filters"),
+                sort_by=request.args.get("sort_by"),
+                cursor=request.args.get("cursor") or None,
+                page_size=int(request.args.get("page_size", 10)),
+            )
+            result = page_qry.handle(query)
+            return CursorPaginatedResponseBuilder.success(
+                items=result.items,
+                next_cursor=result.next_cursor,
+                message="Products retrieved successfully",
+            ), 200
 
         @ns.expect(create_model)
         @ns.doc("create_product")
         def post(self):
             """Create a new product."""
             data = request.get_json() or {}
-            try:
-                cmd = CreateProductCommand(
-                    name=data.get("name", ""),
-                    price=data.get("price", 0),
-                    category=data.get("category", ""),
-                    description=data.get("description"),
-                    stock=data.get("stock", 0),
-                )
-                product_id = create_cmd.handle(cmd)
-                return ProcessResponseBuilder.created(product_id), 201
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            cmd = CreateProductCommand(
+                name=data.get("name", ""),
+                price=data.get("price", 0),
+                category=data.get("category", ""),
+                description=data.get("description"),
+                stock=data.get("stock", 0),
+            )
+            product_id = create_cmd.handle(cmd)
+            return ProcessResponseBuilder.created(product_id), 201
 
     # ── /api/v1/products/<id>  (GET detail + PUT update + DELETE) ────────────
     @ns.route("/<string:product_id>")
@@ -157,38 +165,26 @@ def _register_product_routes(
         @ns.doc("get_product")
         def get(self, product_id: str):
             """Get a single product by ID."""
-            try:
-                data = detail_qry.handle(GetProductByIdQuery(product_id=product_id))
-                return SimpleObjectResponseBuilder.found(data), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            data = detail_qry.handle(GetProductByIdQuery(product_id=product_id))
+            return SimpleObjectResponseBuilder.found(data), 200
 
         @ns.expect(update_model)
         @ns.doc("update_product")
         def put(self, product_id: str):
             """Update an existing product (partial update supported)."""
             data = request.get_json() or {}
-            try:
-                cmd = UpdateProductCommand(product_id=product_id, **{
-                    k: data[k] for k in ("name", "price", "category", "description")
-                    if k in data
-                })
-                pid = update_cmd.handle(cmd)
-                return ProcessResponseBuilder.updated(pid), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            cmd = UpdateProductCommand(product_id=product_id, **{
+                k: data[k] for k in ("name", "price", "category", "description")
+                if k in data
+            })
+            pid = update_cmd.handle(cmd)
+            return ProcessResponseBuilder.updated(pid), 200
 
         @ns.doc("delete_product")
         def delete(self, product_id: str):
             """Delete a product."""
-            try:
-                pid = delete_cmd.handle(DeleteProductCommand(product_id=product_id))
-                return ProcessResponseBuilder.deleted(pid), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            pid = delete_cmd.handle(DeleteProductCommand(product_id=product_id))
+            return ProcessResponseBuilder.deleted(pid), 200
 
     # ── /api/v1/products/<id>/status  (PATCH) ────────────────────────────────
     @ns.route("/<string:product_id>/status")
@@ -199,16 +195,12 @@ def _register_product_routes(
         def patch(self, product_id: str):
             """Change product status (active | inactive | discontinued)."""
             data = request.get_json() or {}
-            try:
-                cmd = ChangeProductStatusCommand(
-                    product_id=product_id,
-                    status=data.get("status", ""),
-                )
-                pid = status_cmd.handle(cmd)
-                return ProcessResponseBuilder.updated(pid), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            cmd = ChangeProductStatusCommand(
+                product_id=product_id,
+                status=data.get("status", ""),
+            )
+            pid = status_cmd.handle(cmd)
+            return ProcessResponseBuilder.updated(pid), 200
 
 
 def _register_sale_routes(
@@ -230,37 +222,29 @@ def _register_sale_routes(
         })
         def get(self):
             """List sales, optionally filtered by product_id."""
-            try:
-                query = GetSalesQuery(
-                    product_id=request.args.get("product_id"),
-                    page=int(request.args.get("page", 1)),
-                    page_size=int(request.args.get("page_size", 10)),
-                )
-                result = list_qry.handle(query)
-                return PaginatedResponseBuilder.success(
-                    items=result.items, total_count=result.total_count,
-                    page=result.page, page_size=result.page_size,
-                    message="Sales retrieved successfully",
-                ), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            query = GetSalesQuery(
+                product_id=request.args.get("product_id"),
+                page=int(request.args.get("page", 1)),
+                page_size=int(request.args.get("page_size", 10)),
+            )
+            result = list_qry.handle(query)
+            return PaginatedResponseBuilder.success(
+                items=result.items, total_count=result.total_count,
+                page=result.page, page_size=result.page_size,
+                message="Sales retrieved successfully",
+            ), 200
 
         @ns.expect(sale_model)
         @ns.doc("register_sale")
         def post(self):
             """Register a sale — decrements stock (Postgres) + logs the sale (Mongo)."""
             data = request.get_json() or {}
-            try:
-                cmd = RegisterSaleCommand(
-                    product_id=data.get("product_id", ""),
-                    quantity=data.get("quantity", 0),
-                )
-                sale_id = register_cmd.handle(cmd)
-                return ProcessResponseBuilder.created(sale_id), 201
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            cmd = RegisterSaleCommand(
+                product_id=data.get("product_id", ""),
+                quantity=data.get("quantity", 0),
+            )
+            sale_id = register_cmd.handle(cmd)
+            return ProcessResponseBuilder.created(sale_id), 201
 
 
 def _register_stock_movement_routes(
@@ -284,36 +268,28 @@ def _register_stock_movement_routes(
         })
         def get(self):
             """List stock movements, optionally filtered by product_id."""
-            try:
-                query = GetStockMovementsQuery(
-                    product_id=request.args.get("product_id"),
-                    page=int(request.args.get("page", 1)),
-                    page_size=int(request.args.get("page_size", 10)),
-                )
-                result = list_qry.handle(query)
-                return PaginatedResponseBuilder.success(
-                    items=result.items, total_count=result.total_count,
-                    page=result.page, page_size=result.page_size,
-                    message="Stock movements retrieved successfully",
-                ), 200
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            query = GetStockMovementsQuery(
+                product_id=request.args.get("product_id"),
+                page=int(request.args.get("page", 1)),
+                page_size=int(request.args.get("page_size", 10)),
+            )
+            result = list_qry.handle(query)
+            return PaginatedResponseBuilder.success(
+                items=result.items, total_count=result.total_count,
+                page=result.page, page_size=result.page_size,
+                message="Stock movements retrieved successfully",
+            ), 200
 
         @ns.expect(movement_model)
         @ns.doc("register_stock_movement")
         def post(self):
             """Register a stock movement — adjusts stock (Postgres) + logs the movement (Mongo)."""
             data = request.get_json() or {}
-            try:
-                cmd = RegisterStockMovementCommand(
-                    product_id=data.get("product_id", ""),
-                    type=data.get("type", ""),
-                    quantity=data.get("quantity", 0),
-                    reason=data.get("reason"),
-                )
-                movement_id = register_cmd.handle(cmd)
-                return ProcessResponseBuilder.created(movement_id), 201
-            except Exception as exc:
-                err = ErrorResponseBuilder.from_exception(exc)
-                return err, err["status_code"]
+            cmd = RegisterStockMovementCommand(
+                product_id=data.get("product_id", ""),
+                type=data.get("type", ""),
+                quantity=data.get("quantity", 0),
+                reason=data.get("reason"),
+            )
+            movement_id = register_cmd.handle(cmd)
+            return ProcessResponseBuilder.created(movement_id), 201

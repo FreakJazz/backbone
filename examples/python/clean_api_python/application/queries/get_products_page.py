@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from backbone.domain.specifications import decode_cursor
 from backbone.errors import ErrorCodes
 from backbone.application.exceptions import ValidationException
+from backbone.infrastructure.logging import LoggerFactory
 
 from domain.repositories.product_repository import IProductRepository
 from domain.specifications.product_specs import parse_product_filters, VALID_SORT_FIELDS
@@ -30,6 +31,9 @@ class GetProductsPageQueryHandler:
 
     def __init__(self, repo: IProductRepository) -> None:
         self._repo = repo
+        self._logger = LoggerFactory.create_for_layer(
+            service_name="clean-api-python", layer="application", component="GetProductsPageQueryHandler",
+        )
 
     def handle(self, query: GetProductsPageQuery) -> GetProductsPageResult:
         # A malformed cursor is a client input error (400), not a server
@@ -42,6 +46,7 @@ class GetProductsPageQueryHandler:
             try:
                 decode_cursor(query.cursor)
             except ValueError as exc:
+                self._logger.warning("Invalid cursor", context={"cursor": query.cursor, "error": str(exc)})
                 raise ValidationException(str(exc), code=ErrorCodes.APP_VALIDATION_FAILURE)
 
         spec = parse_product_filters(query.filters)
@@ -54,6 +59,10 @@ class GetProductsPageQueryHandler:
 
         products, next_cursor = self._repo.find_page_by_cursor(
             spec, sort_field, sort_desc, query.cursor, query.page_size,
+        )
+        self._logger.info(
+            "Products listed by cursor",
+            context={"filters": query.filters, "count": len(products), "has_more": next_cursor is not None},
         )
         return GetProductsPageResult(
             items=[p.to_dict() for p in products],

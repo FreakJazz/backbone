@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from backbone.application.exceptions import ResourceNotFoundException
+from backbone.infrastructure.logging import LoggerFactory
 
 from domain.repositories.product_repository import IProductRepository
 
@@ -13,13 +14,18 @@ class DeleteProductCommand:
 class DeleteProductCommandHandler:
     def __init__(self, repo: IProductRepository) -> None:
         self._repo = repo
+        self._logger = LoggerFactory.create_for_layer(
+            service_name="clean-api-python", layer="application", component="DeleteProductCommandHandler",
+        )
 
     def handle(self, cmd: DeleteProductCommand) -> str:
         if not self._repo.exists(cmd.product_id):
+            self._logger.warning("Product not found", context={"id": cmd.product_id})
             raise ResourceNotFoundException(
                 "Product not found",
                 resource_type="Product",
                 resource_id=cmd.product_id,
             )
         self._repo.delete(cmd.product_id)
+        self._logger.info("Product deleted", context={"id": cmd.product_id})
         return cmd.product_id

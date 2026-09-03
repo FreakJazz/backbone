@@ -3,6 +3,7 @@ from typing import Optional
 
 from backbone.errors import ErrorCodes
 from backbone.application.exceptions import ValidationException, ResourceNotFoundException, ResourceConflictException
+from backbone.infrastructure.logging import LoggerFactory
 
 from domain.repositories.product_repository import IProductRepository
 
@@ -19,10 +20,14 @@ class UpdateProductCommand:
 class UpdateProductCommandHandler:
     def __init__(self, repo: IProductRepository) -> None:
         self._repo = repo
+        self._logger = LoggerFactory.create_for_layer(
+            service_name="clean-api-python", layer="application", component="UpdateProductCommandHandler",
+        )
 
     def handle(self, cmd: UpdateProductCommand) -> str:
         product = self._repo.find_by_id(cmd.product_id)
         if not product:
+            self._logger.warning("Product not found", context={"id": cmd.product_id})
             raise ResourceNotFoundException(
                 "Product not found",
                 resource_type="Product",
@@ -39,6 +44,7 @@ class UpdateProductCommandHandler:
             if name.lower() != product.name.lower():
                 existing = self._repo.find_by_name(name)
                 if existing:
+                    self._logger.warning("Duplicate product name", context={"name": name})
                     raise ResourceConflictException(
                         "a product with that name already exists",
                         resource_type="Product",
@@ -62,4 +68,5 @@ class UpdateProductCommandHandler:
             product.description = cmd.description
 
         self._repo.save(product)
+        self._logger.info("Product updated", context={"id": product.id})
         return product.id

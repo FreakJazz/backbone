@@ -3,6 +3,7 @@ from typing import Optional
 
 from backbone.errors import ErrorCodes
 from backbone.application.exceptions import ValidationException, ResourceConflictException
+from backbone.infrastructure.logging import LoggerFactory
 
 from domain.entities.product import Product
 from domain.repositories.product_repository import IProductRepository
@@ -20,6 +21,9 @@ class CreateProductCommand:
 class CreateProductCommandHandler:
     def __init__(self, repo: IProductRepository) -> None:
         self._repo = repo
+        self._logger = LoggerFactory.create_for_layer(
+            service_name="clean-api-python", layer="application", component="CreateProductCommandHandler",
+        )
 
     def handle(self, cmd: CreateProductCommand) -> str:
         if not cmd.name or len(cmd.name.strip()) < 2:
@@ -45,6 +49,7 @@ class CreateProductCommandHandler:
 
         existing = self._repo.find_by_name(cmd.name)
         if existing:
+            self._logger.warning("Duplicate product name", context={"name": cmd.name})
             raise ResourceConflictException(
                 "a product with that name already exists",
                 resource_type="Product",
@@ -61,4 +66,5 @@ class CreateProductCommandHandler:
             stock=cmd.stock,
         )
         saved = self._repo.save(product)
+        self._logger.info("Product created", context={"id": saved.id, "name": saved.name})
         return saved.id

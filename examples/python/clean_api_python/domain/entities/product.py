@@ -20,6 +20,19 @@ class Product:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+    def __post_init__(self) -> None:
+        # The `description` column is NOT NULL DEFAULT '' (see
+        # infrastructure/database/postgres.py) — backbone-go's equivalent
+        # field is a plain (non-pointer) string, so "no description" is
+        # already "" there by Go's own zero-value rules and this case never
+        # arises. Python's Optional[str] has no such built-in zero value, so
+        # "no description" (None, e.g. an omitted JSON field in
+        # CreateProductCommand) must be normalized here — otherwise the
+        # INSERT in PostgresProductRepository.save() fails with a
+        # NotNullViolation for the most ordinary "just don't send one" case.
+        if self.description is None:
+            self.description = ""
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,

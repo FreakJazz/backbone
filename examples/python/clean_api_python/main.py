@@ -69,6 +69,16 @@ from interfaces.http.v1.routes import register_routes
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    # flask-restx appends its own "did you mean ...?" routing-suggestion
+    # text to every 404 response by default (ERROR_404_HELP=True) — even
+    # ones produced by our own centralized error handler (routes.py), which
+    # already builds a clean backbone-contract body via
+    # ErrorResponseBuilder.from_exception. Left enabled, a plain
+    # ResourceNotFoundException("Product not found", ...) comes back as
+    # "Product not found. You have requested this URI [...] but did you
+    # mean ...?" — flask-restx post-processes the message string after our
+    # handler returns it, regardless of who built the response.
+    app.config["ERROR_404_HELP"] = False
 
     postgres_dsn = os.environ.get("POSTGRES_DSN", "postgresql://backbone:backbone@localhost:5433/backbone_products")
     mongo_uri = os.environ.get("MONGO_URI", "mongodb://backbone:backbone@localhost:27018")

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from backbone.infrastructure.logging import LoggerFactory
+
 from domain.repositories.sale_repository import ISaleRepository
 
 
@@ -22,9 +24,16 @@ class GetSalesResult:
 class GetSalesQueryHandler:
     def __init__(self, repo: ISaleRepository) -> None:
         self._repo = repo
+        self._logger = LoggerFactory.create_for_layer(
+            service_name="clean-api-python", layer="application", component="GetSalesQueryHandler",
+        )
 
     def handle(self, query: GetSalesQuery) -> GetSalesResult:
         sales, total = self._repo.find_by_product_id(query.product_id, query.page, query.page_size)
+        self._logger.info(
+            "Sales listed",
+            context={"product_id": query.product_id, "total": total, "page": query.page},
+        )
         return GetSalesResult(
             items=[s.to_dict() for s in sales],
             total_count=total,

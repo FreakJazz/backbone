@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from backbone.infrastructure.logging import LoggerFactory
+
 from domain.repositories.product_repository import IProductRepository
 from domain.specifications.product_specs import parse_product_filters, parse_product_sort
 
@@ -24,6 +26,9 @@ class GetProductsResult:
 class GetProductsQueryHandler:
     def __init__(self, repo: IProductRepository) -> None:
         self._repo = repo
+        self._logger = LoggerFactory.create_for_layer(
+            service_name="clean-api-python", layer="application", component="GetProductsQueryHandler",
+        )
 
     def handle(self, query: GetProductsQuery) -> GetProductsResult:
         spec = parse_product_filters(query.filters)
@@ -35,6 +40,10 @@ class GetProductsQueryHandler:
             sort_desc=(sort_dir == "desc"),
             page=query.page,
             page_size=query.page_size,
+        )
+        self._logger.info(
+            "Products listed",
+            context={"filters": query.filters, "total": total, "page": query.page, "page_size": query.page_size},
         )
         return GetProductsResult(
             items=[p.to_dict() for p in products],
