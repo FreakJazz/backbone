@@ -3,7 +3,7 @@
 > Lightweight Go library for standardising **error codes, HTTP responses, structured logs, and filter specifications** across microservices following Clean Architecture.
 
 ![Go](https://img.shields.io/badge/go-1.21%2B-00ADD8?logo=go)
-![Version](https://img.shields.io/badge/version-v0.1.0-blue)
+![Version](https://img.shields.io/badge/version-v0.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-beta-orange)
 
@@ -18,7 +18,7 @@ In a microservices ecosystem every team invents its own error shape, log format,
 ## Installation
 
 ```bash
-go get github.com/FreakJazz/backbone/backbone-go@v0.1.0
+go get github.com/FreakJazz/backbone/backbone-go@v0.2.0
 ```
 
 **Requirements:** Go 1.21+
@@ -295,7 +295,7 @@ All 8 packages pass: `tests`, `tests/application/exceptions`, `tests/domain/exce
 
 ## Version
 
-`v0.1.0` — public beta. API stabilises at `v1.0.0`.
+`v0.2.0` — public beta. API stabilises at `v1.0.0`.
 
 ## License
 

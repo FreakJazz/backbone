@@ -18,25 +18,17 @@ Both implementations share **identical JSON contracts** — the same error shape
 | | Python | Go |
 |---|---|---|
 | Folder | [`backbone-python/`](./backbone-python/README.md) | [`backbone-go/`](./backbone-go/README.md) |
-| Install | `pip install "backbone @ https://github.com/FreakJazz/backbone/archive/refs/tags/backbone-python/v0.2.0.tar.gz#subdirectory=backbone-python"` | `go get github.com/FreakJazz/backbone/backbone-go@backbone-go/v0.2.0` |
+| Install | `pip install "backbone @ https://github.com/FreakJazz/backbone/archive/refs/tags/backbone-python/v0.2.0.tar.gz#subdirectory=backbone-python"` | `go get github.com/FreakJazz/backbone/backbone-go@v0.2.0` |
 | Tests | 102 passed | 8 packages, all green |
 | Example | [`examples/python/clean_api_python/`](./examples/python/clean_api_python/) | [`examples/go/clean-api-go/`](./examples/go/clean-api-go/) |
 
-> **The `backbone-python/v0.2.0` / `backbone-go/v0.2.0` tags above don't
-> exist on GitHub yet** — this repo has never cut a git tag. Until one is
-> pushed, `go get ...@backbone-go/v0.2.0` has nothing to resolve to, and a
-> consumer installing from `@main` (branch, not a tag) always gets whatever
-> is newest on `main` regardless of what `__version__`/`pyproject.toml` say
-> — bumping that string alone doesn't signal a new version to anyone. Tag
-> and push once ready:
-> ```bash
-> git tag backbone-go/v0.2.0 && git tag backbone-python/v0.2.0
-> git push origin backbone-go/v0.2.0 backbone-python/v0.2.0
-> ```
-> After that, pin your *other* projects' `go.mod`/`requirements.txt` to
-> these tags (not `@main` / `archive/refs/heads/main.tar.gz`) — that pin is
-> what actually makes "there's a new version" a decision you make on
-> purpose, instead of every install silently tracking `main`.
+`backbone-go/v0.2.0` and `backbone-python/v0.2.0` are real, pushed git tags —
+both examples above now install from GitHub for real, verified end-to-end
+(`go mod tidy` + `go build` + `go test` against the tagged module with no
+local `replace` directive; `pip install` from the tag's tarball URL). Note
+the Go `@version` doesn't repeat the `backbone-go/` tag prefix — the module
+path already contains it, so the tag `backbone-go/v0.2.0` is referenced as
+just `@v0.2.0`.
 
 ---
 

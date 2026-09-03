@@ -3,7 +3,7 @@ module github.com/freakjazz/clean-api-go
 go 1.25.0
 
 require (
-	github.com/FreakJazz/backbone/backbone-go v0.0.0
+	github.com/FreakJazz/backbone/backbone-go v0.2.0
 	github.com/google/uuid v1.5.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
@@ -38,5 +38,3 @@ require (
 	golang.org/x/tools v0.36.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/FreakJazz/backbone/backbone-go => ../../../backbone-go

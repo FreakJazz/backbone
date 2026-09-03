@@ -3,7 +3,7 @@
 > Python library for standardising **error codes, HTTP responses, structured logs, and filter specifications** across microservices following Clean Architecture / Hexagonal Architecture.
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-beta-orange)
 
@@ -19,8 +19,12 @@ In a microservices ecosystem every team invents its own error shape, log format,
 
 ## Installation
 
+Not published to PyPI — installed straight from its GitHub tag (a plain
+HTTPS tarball URL, so no `git` binary is required on the host or in a
+Docker image):
+
 ```bash
-pip install backbone-python==0.1.0
+pip install "backbone @ https://github.com/FreakJazz/backbone/archive/refs/tags/backbone-python/v0.2.0.tar.gz#subdirectory=backbone-python"
 ```
 
 From source (development):

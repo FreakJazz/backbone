@@ -345,14 +345,16 @@ You could build this alerting without backbone — but you would have to maintai
 
 ## Install
 
-Not yet published to pkg.go.dev / PyPI — install straight from source until `v0.1.0` is tagged:
+Tagged and pushed for real — `backbone-go/v0.2.0` and `backbone-python/v0.2.0`. Neither is on pkg.go.dev / PyPI yet, so both install straight from the GitHub tag:
 
 ```bash
-# Go
-go get github.com/FreakJazz/backbone/backbone-go@main
+# Go — note @v0.2.0, not @backbone-go/v0.2.0: the module path already
+# contains the backbone-go/ prefix the tag itself needs
+go get github.com/FreakJazz/backbone/backbone-go@v0.2.0
 
-# Python
-pip install "backbone @ git+https://github.com/FreakJazz/backbone.git#subdirectory=backbone-python"
+# Python — a plain HTTPS tarball URL, not git+https://, so installing it
+# needs no `git` binary on the host or in a Docker image
+pip install "backbone @ https://github.com/FreakJazz/backbone/archive/refs/tags/backbone-python/v0.2.0.tar.gz#subdirectory=backbone-python"
 ```
 
 Source and full examples: [github.com/FreakJazz/backbone](https://github.com/FreakJazz/backbone)
